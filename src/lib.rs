@@ -2,6 +2,7 @@
 mod tests {
     use std::f64::{NAN, INFINITY, NEG_INFINITY};
 	use std::ptr::null;
+	use std::f32::consts::LN_10;
 
 	const MAX_SIGNIFICANT_DIGITS: i32 = 17; // Highest value you can safely put here is Number.MAX_SAFE_INTEGER-MAX_SIGNIFICANT_DIGITS
 
@@ -375,9 +376,9 @@ mod tests {
 			return from_decimal(self);
 		}
 
-		fn add(&self, decimal: Decimal) -> Decimal {
+		fn add(&self, decimal: &Decimal) -> Decimal {
 			if self.mantissa == 0.0 {
-				return decimal;
+				return from_decimal(decimal);
 			} else if decimal.mantissa == 0.0 {
 				return from_decimal(self);
 			}
@@ -399,40 +400,40 @@ mod tests {
 
 			return from_mantissa_exponent((1e14 * bigger_decimal.mantissa) + 1e14 * &smaller_decimal * POWER_OF_10((&smaller_decimal.exponent - bigger_decimal.exponent) as i32).round(), bigger_decimal.exponent - 14);
 		}
-		fn plus(&self, decimal: Decimal) -> Decimal {
+		fn plus(&self, decimal: &Decimal) -> Decimal {
 			return self.add(decimal);
 		}
 
-		fn sub(&self, decimal: Decimal) -> Decimal {
-			return self.add(decimal.neg());
+		fn sub(&self, decimal: &Decimal) -> Decimal {
+			return self.add(&decimal.neg());
 		}
-		fn subtract(&self, decimal: Decimal) -> Decimal {
+		fn subtract(&self, decimal: &Decimal) -> Decimal {
 			return self.sub(decimal);
 		}
-		fn minus(&self, decimal: Decimal) -> Decimal {
+		fn minus(&self, decimal: &Decimal) -> Decimal {
 			return self.sub(decimal);
 		}
 
-		fn mul(&self, decimal: Decimal) -> Decimal {
+		fn mul(&self, decimal: &Decimal) -> Decimal {
 			return from_mantissa_exponent(self.mantissa * decimal.mantissa, self.exponent + decimal.exponent);
 		}
-		fn multiply(&self, decimal: Decimal) -> Decimal {
+		fn multiply(&self, decimal: &Decimal) -> Decimal {
 			return self.mul(decimal);
 		}
-		fn times(&self, decimal: Decimal) -> Decimal {
+		fn times(&self, decimal: &Decimal) -> Decimal {
 			return self.mul(decimal);
 		}
 
-		fn div(&self, decimal: Decimal) -> Decimal {
-			return self.mul(decimal.recip());
+		fn div(&self, decimal: &Decimal) -> Decimal {
+			return self.mul(&decimal.recip());
 		}
-		fn divide(&self, decimal: Decimal) -> Decimal {
+		fn divide(&self, decimal: &Decimal) -> Decimal {
 			return self.div(decimal);
 		}
-		fn divide_by(&self, decimal: Decimal) -> Decimal {
+		fn divide_by(&self, decimal: &Decimal) -> Decimal {
 			return self.div(decimal);
 		}
-		fn divided_by(&self, decimal: Decimal) -> Decimal {
+		fn divided_by(&self, decimal: &Decimal) -> Decimal {
 			return self.div(decimal);
 		}
 
@@ -444,6 +445,203 @@ mod tests {
 		}
 		fn reciprocate(&self) -> Decimal {
 			return self.recip();
+		}
+
+
+		fn cmp(&self, decimal: &Decimal) -> i32 {
+			/*
+			From smallest to largest:
+			-3e100
+			-1e100
+			-3e99
+			-1e99
+			-3e0
+			-1e0
+			-3e-99
+			-1e-99
+			-3e-100
+			-1e-100
+			0
+			1e-100
+			3e-100
+			1e-99
+			3e-99
+			1e0
+			3e0
+			1e99
+			3e99
+			1e100
+			3e100
+			*/
+
+			if self.mantissa == 0.0 {
+				if decimal.mantissa == 0.0 {
+					return 0;
+				} else if decimal.mantissa < 0.0 {
+					return 1;
+				} else if decimal.mantissa > 0.0 {
+					return -1;
+				}
+			}
+
+			if decimal.mantissa == 0.0 {
+				if self.mantissa < 0.0 {
+					return -1;
+				} else if self.mantissa > 0.0 {
+					return 1;
+				}
+			}
+
+			if self.mantissa > 0.0 {
+				if decimal.mantissa < 0.0 {
+					return 1;
+				} else if self.exponent > decimal.exponent {
+					return 1;
+				} else if self.exponent < decimal.exponent {
+					return -1;
+				} else if self.mantissa > decimal.mantissa {
+					return 1;
+				} else if self.mantissa < decimal.mantissa {
+					return -1;
+				}
+
+				return 0;
+			}
+
+			if self.mantissa < 0.0 {
+				if decimal.mantissa > 0.0 {
+					return -1;
+				} else if self.exponent > decimal.exponent {
+					return -1;
+				} else if self.exponent < decimal.exponent {
+					return 1;
+				} else if self.mantissa > decimal.mantissa {
+					return 1;
+				} else if self.mantissa < decimal.mantissa {
+					return -1;
+				}
+
+				return 0;
+			}
+
+			return NAN as i32;
+		}
+		fn compare(&self, decimal: &Decimal) -> i32 {
+			return self.cmp(decimal);
+		}
+
+		fn eq(&self, decimal: &Decimal) -> bool {
+			return self.exponent == decimal.exponent && self.mantissa == decimal.exponent;
+		}
+		fn equals(&self, decimal: &Decimal) -> bool {
+			return self.equals(decimal);
+		}
+
+		fn neq(&self, decimal: &Decimal) -> bool {
+			return !self.eq(decimal);
+		}
+		fn not_equals(&self, decimal: &Decimal) -> bool {
+			return !self.neq(decimal);
+		}
+
+		fn lt(&self, decimal: &Decimal) -> bool {
+			if self.mantissa == 0.0 {
+				return decimal.mantissa > 0.0;
+			} else if decimal.mantissa == 0.0 {
+				return self.mantissa <= 0.0;
+			} else if self.exponent == decimal.exponent {
+				return self.mantissa < decimal.mantissa;
+			} else if self.mantissa > 0.0 {
+				return decimal.mantissa > 0.0 && self.exponent < decimal.exponent;
+			}
+
+			return decimal.mantissa > 0.0 || self.exponent > decimal.exponent;
+		}
+		fn lte(&self, decimal: &Decimal) -> bool {
+			return !self.gt(decimal);
+		}
+
+		fn gt(&self, decimal: &Decimal) -> bool {
+			if self.mantissa == 0.0 {
+				return decimal.mantissa < 0.0;
+			} else if decimal.mantissa == 0.0 {
+				return self.mantissa > 0.0;
+			} else if self.exponent == decimal.exponent {
+				return self.mantissa > decimal.mantissa;
+			} else if self.mantissa > 0.0 {
+				return decimal.mantissa < 0.0 || self.exponent > decimal.exponent;
+			}
+
+			return decimal.mantissa < 0.0 && self.exponent < decimal.exponent;
+		}
+		fn gte(&self, decimal: &Decimal) -> bool {
+			return !self.lt(decimal);
+		}
+
+		fn max(&self, decimal: &Decimal) -> Decimal{
+			return if self.lt(decimal) {
+				from_decimal(decimal);
+			} else {
+				from_decimal(self);
+			}
+		}
+
+		fn min(&self, decimal: &Decimal) -> Decimal {
+			return if self.gt(decimal) {
+				from_decimal(decimal);
+			} else {
+				from_decimal(self);
+			}
+		}
+
+		fn clamp(&self, min: &Decimal, max: &Decimal) -> Decimal {
+			return self.max(min).min(max);
+		}
+		fn clamp_min(&self, min: &Decimal) -> Decimal {
+			return self.max(min);
+		}
+		fn clamp_max(&self, max: &Decimal) -> Decimal {
+			return self.min(max);
+		}
+
+		fn cmp_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> i32 {
+			return if self.eq_tolerance(decimal, tolerance) {
+				0
+			} else {
+				self.cmp(decimal)
+			}
+		}
+		fn compare_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> i32 {
+			return self.cmp_tolerance(decimal, tolerance);
+		}
+
+		fn eq_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> bool {
+			// return abs(a-b) <= tolerance * max(abs(a), abs(b))
+			return self.sub(decimal).abs().lte(&self.abs().max(&decimal.abs().mul(tolerance)));
+		}
+		fn equals_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> bool {
+			return self.eq_tolerance(decimal, tolerance);
+		}
+
+		fn neq_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> bool {
+			return !self.eq_tolerance(decimal, tolerance);
+		}
+		fn not_equals_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> bool {
+			return self.neq_tolerance(decimal, tolerance);
+		}
+
+		fn lt_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> bool {
+			return !self.eq_tolerance(decimal, tolerance) && self.lt(decimal);
+		}
+		fn lte_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> bool {
+			return self.eq_tolerance(decimal, tolerance) || self.lt(decimal);
+		}
+
+		fn gt_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> bool {
+			return !self.eq_tolerance(decimal, tolerance) && self.gt(decimal);
+		}
+		fn gte_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> bool {
+			return self.eq_tolerance(decimal, tolerance) || self.gt(decimal);
 		}
 	}
 }
