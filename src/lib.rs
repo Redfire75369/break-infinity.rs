@@ -113,11 +113,9 @@ mod tests {
 		};
         return decimal.normalize();
     }
-
 	pub fn from_mantissa_exponent_no_normalize(mantissa: f64, exponent: f64) -> Decimal {
         return Decimal { mantissa, exponent }
     }
-
 	pub fn from_mantissa_exponent(mantissa: f64, exponent: f64) -> Decimal {
 		if !f64::is_finite(mantissa) || !f64::is_finite(exponent) {
 			return Decimal {
@@ -128,6 +126,12 @@ mod tests {
         let decimal = from_mantissa_exponent_no_normalize(mantissa, exponent);
 		return decimal.normalize();
     }
+	pub fn from_decimal(decimal: &Decimal) -> Decimal {
+		return Decimal {
+			mantissa: decimal.mantissa,
+			exponent: decimal.exponent
+		};
+	}
 
 	impl Decimal {
 		fn normalize(mut self) -> Decimal {
@@ -189,7 +193,6 @@ mod tests {
 
 			return result;
 		}
-
 		fn to_string(&self) -> String {
 			if f64::is_nan(self.mantissa) || f64::is_nan(self.exponent) {
 				return String::from("NaN");
@@ -211,7 +214,6 @@ mod tests {
 				""
 			}) + self.exponent;
 		}
-
 		fn to_exponential(&self, mut places: i32) -> String {
 			if f64::is_nan(self.mantissa) || f64::is_nan(self.exponent) {
 				return String::from("NaN");
@@ -240,7 +242,6 @@ mod tests {
 				""
 			} + self.exponent);
 		}
-
 		fn to_fixed(&self, places: i32) -> String {
 			if f64::is_nan(self.mantissa) || f64::is_nan(self.exponent) {
 				return String::from("NaN");
@@ -267,7 +268,6 @@ mod tests {
 
 			return to_fixed(self.to_number(), places);
 		}
-
 		fn to_precision(&self, places: i32) -> String {
 			if self.exponent <= -7.0 {
 				return self.to_exponential(places - 1);
@@ -296,13 +296,154 @@ mod tests {
 		fn value_of(&self) -> String {
 			return self.to_string();
 		}
-
 		fn to_json(&self) -> String {
 			return self.to_string();
 		}
-
 		fn to_string_with_decimal_places(&self, places: i32) -> String {
 			return self.to_exponential(places);
+		}
+
+		fn abs(&self) -> Decimal {
+			return from_mantissa_exponent_no_normalize(self.mantissa.abs(), self.exponent);
+		}
+
+		fn neg(&self) -> Decimal {
+			return from_mantissa_exponent_no_normalize(-self.mantissa, self.exponent);
+		}
+		fn negate(&self) -> Decimal {
+			return self.neg();
+		}
+		fn negated(&self) -> Decimal {
+			return self.neg();
+		}
+
+		fn sign(&self) -> i32 {
+			return if self.mantissa.is_sign_positive() {
+				1
+			} else if  self.mantissa.is_sign_negative() {
+				-1
+			} else {
+				0
+			};
+		}
+		fn sgn(&self) -> i32 {
+			return self.sign();
+		}
+
+		fn round(&self) -> Decimal {
+			if self.exponent < -1.0 {
+				return new(0.0);
+			} else if self.exponent < MAX_SIGNIFICANT_DIGITS as f64 {
+				return new(self.to_number().round());
+			}
+
+			return from_decimal(self);
+		}
+		fn trunc(&self) -> Decimal {
+			if self.exponent < 0.0 {
+				return new(0.0);
+			} else if self.exponent < MAX_SIGNIFICANT_DIGITS as f64 {
+				return new(self.to_number().trunc());
+			}
+
+			return from_decimal(self);
+		}
+		fn floor(&self) -> Decimal {
+			if self.exponent < -1.0 {
+				return if self.sign() >= 0 {
+					new(0.0)
+				} else {
+					new(-1.0)
+				}
+			} else if self.exponent < MAX_SIGNIFICANT_DIGITS as f64 {
+				return new(self.to_number().floor());
+			}
+
+			return from_decimal(self);
+		}
+		fn ceil(&self) -> Decimal {
+			if self.exponent < -1.0 {
+				return if self.sign() > 0 {
+					new(1.0)
+				} else {
+					new(0.0)
+				};
+			} else if self.exponent < MAX_SIGNIFICANT_DIGITS as f64 {
+				return new(self.to_number().ceil());
+			}
+
+			return from_decimal(self);
+		}
+
+		fn add(&self, decimal: Decimal) -> Decimal {
+			if self.mantissa == 0.0 {
+				return decimal;
+			} else if decimal.mantissa == 0.0 {
+				return from_decimal(self);
+			}
+
+			let mut bigger_decimal;
+			let mut smaller_decimal;
+
+			if self.exponent >= decimal.exponent {
+				bigger_decimal = from_decimal(self);
+				smaller_decimal = from_decimal(&decimal);
+			} else {
+				bigger_decimal = from_decimal(&decimal);
+				smaller_decimal = from_decimal(self);
+			}
+
+			if bigger_decimal.exponent - smaller_decimal.exponent > MAX_SIGNIFICANT_DIGITS as f64 {
+				return bigger_decimal;
+			}
+
+			return from_mantissa_exponent((1e14 * bigger_decimal.mantissa) + 1e14 * &smaller_decimal * POWER_OF_10((&smaller_decimal.exponent - bigger_decimal.exponent) as i32).round(), bigger_decimal.exponent - 14);
+		}
+		fn plus(&self, decimal: Decimal) -> Decimal {
+			return self.add(decimal);
+		}
+
+		fn sub(&self, decimal: Decimal) -> Decimal {
+			return self.add(decimal.neg());
+		}
+		fn subtract(&self, decimal: Decimal) -> Decimal {
+			return self.sub(decimal);
+		}
+		fn minus(&self, decimal: Decimal) -> Decimal {
+			return self.sub(decimal);
+		}
+
+		fn mul(&self, decimal: Decimal) -> Decimal {
+			return from_mantissa_exponent(self.mantissa * decimal.mantissa, self.exponent + decimal.exponent);
+		}
+		fn multiply(&self, decimal: Decimal) -> Decimal {
+			return self.mul(decimal);
+		}
+		fn times(&self, decimal: Decimal) -> Decimal {
+			return self.mul(decimal);
+		}
+
+		fn div(&self, decimal: Decimal) -> Decimal {
+			return self.mul(decimal.recip());
+		}
+		fn divide(&self, decimal: Decimal) -> Decimal {
+			return self.div(decimal);
+		}
+		fn divide_by(&self, decimal: Decimal) -> Decimal {
+			return self.div(decimal);
+		}
+		fn divided_by(&self, decimal: Decimal) -> Decimal {
+			return self.div(decimal);
+		}
+
+		fn recip(&self) -> Decimal {
+			return from_mantissa_exponent(1 / self.mantissa, -self.exponent);
+		}
+		fn reciprocal(&self) -> Decimal {
+			return self.recip();
+		}
+		fn reciprocate(&self) -> Decimal {
+			return self.recip();
 		}
 	}
 }
