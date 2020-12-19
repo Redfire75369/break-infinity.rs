@@ -1,16 +1,32 @@
-use std::f64::{NAN, INFINITY, NEG_INFINITY};
-use std::f64::consts::{LN_10, E, PI};
+use std::f64::{INFINITY, NAN, NEG_INFINITY};
+use std::f64::consts::{E, LN_10, PI};
+
 use once_cell::sync::Lazy;
+use rand::prelude::*;
 
-const MAX_SAFE_INTEGER: f64 = 9007199254740991.0;
-const MAX_SIGNIFICANT_DIGITS: i32 = 17; // Highest value you can safely put here is Number.MAX_SAFE_INTEGER-MAX_SIGNIFICANT_DIGITS
+pub const MAX_SAFE_INTEGER: f64 = 9007199254740991.0;
 
-const EXP_LIMIT: f64 = 1.79e308; // The largest exponent that can appear in a Number, though not all mantissas are valid here.
+/**
+ * Highest value you can safely put here is MAX_SAFE_INTEGER
+ */
+pub const MAX_SIGNIFICANT_DIGITS: i32 = 17;
 
-const NUMBER_EXP_MAX: i32 = 308; // The smallest exponent that can appear in a Number, though not all mantissas are valid here.
-const NUMBER_EXP_MIN: i32 = -324; // Tolerance which is used for Number conversion to compensate floating-point error.
 
-const ROUND_TOLERANCE: f64 = 1e-10;
+pub const EXP_LIMIT: f64 = 1.79e308;
+
+/**
+ * Tolerance which is used for Number conversion to compensate floating-point error.
+ */
+pub const ROUND_TOLERANCE: f64 = 1e-10;
+
+/**
+ * The largest exponent that can appear in a Number, though not all mantissas are valid here.
+ */
+pub const NUMBER_EXP_MIN: i32 = -324;
+/**
+ * The smallest exponent that can appear in a Number, though not all mantissas are valid here.
+ */
+pub const NUMBER_EXP_MAX: i32 = 308;
 
 fn pad_end(string: String, max_length: i32, fill_string: String) -> String {
 	if f32::is_nan(max_length as f32) || f32::is_infinite(max_length as f32) {
@@ -61,6 +77,7 @@ fn power_of_10(power: i32) -> f64 {
 }
 
 pub fn new(value: f64) -> Decimal {
+	// SAFETY: Handle Infinity and NaN in a somewhat meaningful way.
 	if f64::is_nan(value) {
 		return Decimal {
 			mantissa: NAN,
@@ -349,7 +366,7 @@ impl Decimal {
 		return self.neg();
 	}
 
-	fn sign(&self) -> i32 {
+	fn sgn(&self) -> i32 {
 		return if self.mantissa.is_sign_positive() {
 			1
 		} else if  self.mantissa.is_sign_negative() {
@@ -358,8 +375,8 @@ impl Decimal {
 			0
 		};
 	}
-	fn sgn(&self) -> i32 {
-		return self.sign();
+	fn sign(&self) -> i32 {
+		return self.sgn();
 	}
 
 	fn round(&self) -> Decimal {
@@ -1174,9 +1191,9 @@ pub fn sum_geometric_series(num_items: &Decimal, price_start: &Decimal, price_ra
  * how much of it can you buy?
  */
 pub fn afford_arithmetic_series(resources_available: &Decimal, price_start: &Decimal, price_add: &Decimal, current_owned: &Decimal) -> Decimal {
-	// n = (-(a-d/2) + sqrt((a-d/2)^2+2dS))/d
-	// where a is actual_start, d is price_add and S is resources_available
-	// then floor it and you're done!
+	//  n = (-(a-d/2) + sqrt((a-d/2)^2+2dS))/d
+	//  where a is actual_start, d is price_add and S is resources_available
+	//  then floor it and you're done!
 	let actual_start = price_start.add(&current_owned.mul(price_add));
 	let b = actual_start.sub(&price_add.div(&new(2.0)));
 	let b2 = b.pow(&new(2.0));
@@ -1206,8 +1223,77 @@ pub fn efficiency_of_purchase(cost: &Decimal, current_rp_s: &Decimal, delta_rp_s
 	return cost.div(current_rp_s).add(&cost.div(delta_rp_s));
 }
 
+pub fn random_decimal_for_testing(abs_max_exponent: f64) -> Decimal {
+	// NOTE: This doesn't follow any kind of sane random distribution, so use this for testing purposes only.
+	// 5% of the time, have a mantissa of 0
+	let rand: f64 = random();
+	if rand * 5.0 < 1.0 {
+		return Decimal {
+			mantissa: 0.0,
+			exponent: 0.0
+		};
+	}
+
+	let rand: f64 = random();
+
+	let mut mantissa: f64 = random();
+	mantissa *= 10.0;
+	if rand < 1.0 {
+		mantissa =  mantissa.round();
+	}
+
+	let rand: f64 = random();
+	let rand = rand * 2.0 - 1.0;
+	mantissa *= if rand.is_sign_positive() {
+		1.0
+	} else if  rand.is_sign_negative() {
+		-1.0
+	} else {
+		0.0
+	};
+
+
+	let rand: f64 = random();
+	let exponent: f64 = (rand * abs_max_exponent * 2.0).floor() - abs_max_exponent;
+	return from_mantissa_exponent(mantissa, exponent);
+	/*
+		Examples:
+			randomly test pow:
+				let a = Decimal::random_decimal_for_testing(1000);
+				let pow = random * 20 - 10;
+				if (random * 2 < 1) { pow = pow.round(); }
+				let result = Decimal.pow(a, new(pow));
+				["(" + a.to_string() + ")^" + pow.to_string(), result.to_string()]
+			randomly test add:
+				let a = Decimal::randomDecimalForTesting(1000);
+				let b = Decimal::randomDecimalForTesting(17);
+				let c = a.mul(b);
+				let result = a.add(c);
+				[a.to_string() + "+" + c.to_string(), result.to_string()]
+	*/
+}
+
 
 #[cfg(test)]
 mod tests {
+	use super::*;
 
+	#[test]
+	fn powers_of_10() {
+		for power in -324..309 {
+			assert_eq!(power_of_10(power), 10.0_f64.powi(power));
+		}
+	}
+
+	#[test]
+	fn decimal() {
+		assert_eq!(new(0.0).to_string(), "0");
+		assert_eq!(new(NAN).to_string(), "NaN");
+		assert_eq!(new(INFINITY).to_string(), "Infinity");
+		assert_eq!(new(NEG_INFINITY).to_string(), "-Infinity");
+
+		assert_eq!(new(100.0).to_string(), "100");
+		assert_eq!(new(1e12).to_string(), "1000000000000");
+		assert_eq!(new(1e308).to_string(), "1e+308");
+	}
 }
