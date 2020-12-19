@@ -1,18 +1,27 @@
 [package]
-name = "break-infinity"
+name = "break_infinity"
 version = "0.1.0"
 edition = "2018"
 
 authors = ["Redfire <redfire75369@hotmail.com>"]
-license = ""
-description = ""
-homepage = ""
-documentation = ""
-repository = ""
-readme = ""
+license = "MPL-2.0"
+description = "A library for larger numbers up to 1e1.79e308 in Rust for Incremental Games"
+homepage = "https://github.com/Redfire75369/break-infinity.rs#readme"
+documentation = "https://docs.rs/break_infinity"
+repository = "https://github.com/Redfire75369/break-infinity.rs"
+readme = "https://github.com/Redfire75369/break-infinity.rs#readme"
 
-#keywords = ""
-#categories = ""
+keywords = [
+	"incremental",
+	"math",
+	"decimal",
+	"large-number",
+	"big-number"
+]
+categories = [
+	"game-development",
+	"mathematics"
+]
 
 exclude = [
 	".editorconfig",

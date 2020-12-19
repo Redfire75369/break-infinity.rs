@@ -1260,8 +1260,8 @@ pub fn random_decimal_for_testing(abs_max_exponent: f64) -> Decimal {
 		Examples:
 			randomly test pow:
 				let a = Decimal::random_decimal_for_testing(1000);
-				let pow = random * 20 - 10;
-				if (random * 2 < 1) { pow = pow.round(); }
+				let pow = random() * 20.0 - 10.0;
+				if (random() * 2.0 < 1.0) { pow = pow.round(); }
 				let result = Decimal.pow(a, new(pow));
 				["(" + a.to_string() + ")^" + pow.to_string(), result.to_string()]
 			randomly test add:
@@ -1276,21 +1276,21 @@ pub fn random_decimal_for_testing(abs_max_exponent: f64) -> Decimal {
 
 #[cfg(test)]
 mod tests {
-	use super::*;
+	use break_infinity as bi;
 
 	#[test]
 	fn powers_of_10() {
 		for power in -324..309 {
-			assert_eq!(power_of_10(power), 10.0_f64.powi(power));
+			assert_eq!(bi::power_of_10(power), 10.0_f64.powi(power));
 		}
 	}
 
 	#[test]
 	fn decimal() {
-		assert_eq!(new(0.0).to_string(), "0");
-		assert_eq!(new(NAN).to_string(), "NaN");
-		assert_eq!(new(INFINITY).to_string(), "Infinity");
-		assert_eq!(new(NEG_INFINITY).to_string(), "-Infinity");
+		assert_eq!(bi::new(0.0).to_string(), "0");
+		assert_eq!(bi::new(NAN).to_string(), "NaN");
+		assert_eq!(bi::new(INFINITY).to_string(), "Infinity");
+		assert_eq!(bi::new(NEG_INFINITY).to_string(), "-Infinity");
 
 		assert_eq!(new(100.0).to_string(), "100");
 		assert_eq!(new(1e12).to_string(), "1000000000000");
