@@ -9,7 +9,7 @@ description = "A library for larger numbers up to 1e1.79e308 in Rust for Increme
 homepage = "https://github.com/Redfire75369/break-infinity.rs#readme"
 documentation = "https://docs.rs/break_infinity"
 repository = "https://github.com/Redfire75369/break-infinity.rs"
-readme = "https://github.com/Redfire75369/break-infinity.rs#readme"
+readme = "readme.md"
 
 keywords = [
 	"incremental",
