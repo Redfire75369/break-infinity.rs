@@ -1,5 +1,14 @@
-use std::f64::{INFINITY, NAN, NEG_INFINITY};
-use std::f64::consts::{E, LN_10, PI};
+use std::f64::{
+	consts::{
+		E,
+		LN_10,
+		PI,
+	},
+	INFINITY,
+	NAN,
+	NEG_INFINITY,
+};
+use std::ops;
 
 use once_cell::sync::Lazy;
 use rand::prelude::*;
@@ -112,15 +121,16 @@ pub fn new(value: f64) -> Decimal {
 	};
 	return decimal.normalize();
 }
+
 pub fn from_mantissa_exponent_no_normalize(mantissa: f64, exponent: f64) -> Decimal {
-	return Decimal { mantissa, exponent }
+	return Decimal { mantissa, exponent };
 }
 pub fn from_mantissa_exponent(mantissa: f64, exponent: f64) -> Decimal {
 	if !f64::is_finite(mantissa) || !f64::is_finite(exponent) {
 		return Decimal {
 			mantissa: NAN,
 			exponent: NAN,
-		}
+		};
 	}
 	let decimal = from_mantissa_exponent_no_normalize(mantissa, exponent);
 	return decimal.normalize();
@@ -128,7 +138,7 @@ pub fn from_mantissa_exponent(mantissa: f64, exponent: f64) -> Decimal {
 pub fn from_decimal(decimal: &Decimal) -> Decimal {
 	return Decimal {
 		mantissa: decimal.mantissa,
-		exponent: decimal.exponent
+		exponent: decimal.exponent,
 	};
 }
 pub fn from_string(string: &String) -> Decimal {
@@ -143,16 +153,101 @@ pub fn from_string(string: &String) -> Decimal {
 	} else if string == "NaN" {
 		Decimal {
 			mantissa: NAN,
-			exponent: NAN
+			exponent: NAN,
 		}
 	} else {
 		new(String::from(string).parse::<f64>().unwrap())
-	}
+	};
 }
 
+#[derive(Clone, Copy)]
 pub struct Decimal {
 	mantissa: f64,
 	exponent: f64,
+}
+
+impl ops::Add<&Decimal> for &Decimal {
+	type Output = Decimal;
+
+	fn add(self, decimal: &Decimal) -> Decimal {
+		// Figure out which is bigger, shrink the mantissa of the smaller
+		// by the difference in exponents, add mantissas, normalize and return
+		// TODO: Optimizations and simplification may be possible, see https://github.com/Patashu/break_infinity.js/issues/8
+		if self.mantissa == 0.0 {
+			return from_decimal(&decimal);
+		} else if decimal.mantissa == 0.0 {
+			return from_decimal(&self);
+		}
+
+		let bigger_decimal;
+		let smaller_decimal;
+
+		if self.exponent >= decimal.exponent {
+			bigger_decimal = from_decimal(&self);
+			smaller_decimal = from_decimal(&decimal);
+		} else {
+			bigger_decimal = from_decimal(&decimal);
+			smaller_decimal = from_decimal(&self);
+		}
+
+		if bigger_decimal.exponent - smaller_decimal.exponent > MAX_SIGNIFICANT_DIGITS as f64 {
+			return bigger_decimal;
+		}
+
+		from_mantissa_exponent((1e14 * bigger_decimal.mantissa) + 1e14 * &smaller_decimal.mantissa * power_of_10((&smaller_decimal.exponent - bigger_decimal.exponent) as i32).round(), bigger_decimal.exponent - 14 as f64)
+	}
+}
+impl ops::Add<&Decimal> for Decimal {
+	type Output = Decimal;
+
+	fn add(self, decimal: &Decimal) -> Decimal {
+		&self.clone() + decimal
+	}
+}
+
+impl ops::Sub<&Decimal> for &Decimal {
+	type Output = Decimal;
+
+	fn sub(self, decimal: &Decimal) -> Decimal {
+		self + &decimal.neg()
+	}
+}
+impl ops::Sub<&Decimal> for Decimal {
+	type Output = Decimal;
+
+	fn sub(self, decimal: &Decimal) -> Decimal {
+		&self.clone() - decimal
+	}
+}
+
+impl ops::Mul<&Decimal> for &Decimal {
+	type Output = Decimal;
+
+	fn mul(self, decimal: &Decimal) -> Decimal {
+		from_mantissa_exponent(self.mantissa * decimal.mantissa, self.exponent + decimal.exponent)
+	}
+}
+impl ops::Mul<&Decimal> for Decimal {
+	type Output = Decimal;
+
+	fn mul(self, decimal: &Decimal) -> Decimal {
+		&self.clone() * decimal
+	}
+}
+
+impl ops::Div<&Decimal> for &Decimal {
+	type Output = Decimal;
+
+	fn div(self, decimal: &Decimal) -> Decimal {
+		self * &decimal.recip()
+	}
+}
+impl ops::Div<&Decimal> for Decimal {
+	type Output = Decimal;
+
+	fn div(self, decimal: &Decimal) -> Decimal {
+		&self.clone() / decimal
+	}
 }
 
 impl Decimal {
@@ -162,10 +257,10 @@ impl Decimal {
 	fn normalize(&self) -> Decimal {
 		if self.mantissa >= 1.0 && self.mantissa < 10.0 {
 			return from_decimal(self);
-		}else if self.mantissa == 0.0 {
+		} else if self.mantissa == 0.0 {
 			return Decimal {
 				mantissa: 0.0,
-				exponent: 0.0
+				exponent: 0.0,
 			};
 		}
 
@@ -176,7 +271,7 @@ impl Decimal {
 			} else {
 				self.mantissa / power_of_10(temp_exponent as i32)
 			},
-			exponent: self.exponent + temp_exponent
+			exponent: self.exponent + temp_exponent,
 		};
 	}
 
@@ -193,11 +288,11 @@ impl Decimal {
 		}
 
 		if self.exponent > NUMBER_EXP_MAX as f64 {
-			return  if self.mantissa > 0.0 {
+			return if self.mantissa > 0.0 {
 				INFINITY
 			} else {
 				NEG_INFINITY
-			}
+			};
 		}
 
 		if self.exponent < NUMBER_EXP_MIN as f64 {
@@ -225,7 +320,7 @@ impl Decimal {
 			return result_rounded;
 		}
 
-		return result;
+		result
 	}
 	fn to_string(&self) -> String {
 		if f64::is_nan(self.mantissa) || f64::is_nan(self.exponent) {
@@ -235,7 +330,7 @@ impl Decimal {
 				String::from("Infinity")
 			} else {
 				String::from("-Infinity")
-			}
+			};
 		} else if self.exponent <= -EXP_LIMIT || self.mantissa == 0.0 {
 			return String::from("0");
 		} else if self.exponent < 21.0 && self.exponent > -7.0 {
@@ -276,7 +371,7 @@ impl Decimal {
 		let len = places + 1;
 		let num_digits = self.mantissa.abs().log10().max(1.0);
 		let rounded = (self.mantissa * 10.0_f64.powi(len - num_digits as i32)).round() * 10.0_f64.powi(num_digits as i32 - len);
-		return to_fixed(rounded, 0_i32.max(len - num_digits as i32).to_owned()) +  "e" + if self.exponent >= 0.0 {
+		return to_fixed(rounded, 0_i32.max(len - num_digits as i32).to_owned()) + "e" + if self.exponent >= 0.0 {
 			"+"
 		} else {
 			""
@@ -290,7 +385,7 @@ impl Decimal {
 				String::from("Infinity")
 			} else {
 				String::from("-Infinity")
-			}
+			};
 		}
 
 		let tmp = pad_end(String::from("."), places + 1, String::from("0"));
@@ -314,7 +409,7 @@ impl Decimal {
 			return String::from(str);
 		}
 
-		return to_fixed(self.to_number(), places);
+		to_fixed(self.to_number(), places)
 	}
 	fn to_precision(&self, places: i32) -> String {
 		if self.exponent <= -7.0 {
@@ -325,7 +420,7 @@ impl Decimal {
 			return self.to_fixed((places as f64 - self.exponent - 1.0) as i32);
 		}
 
-		return self.to_exponential(places - 1);
+		self.to_exponential(places - 1)
 	}
 
 	fn mantissa_with_decimal_places(&self, places: i32) -> f64 {
@@ -333,50 +428,50 @@ impl Decimal {
 		if f64::is_nan(self.mantissa) || f64::is_nan(self.exponent) {
 			return NAN;
 		} else if self.mantissa == 0.0 {
-			return 0.0
+			return 0.0;
 		}
 
 		let len = places + 1;
 		let num_digits = self.mantissa.abs().log10().ceil();
 		let rounded = (self.mantissa * 10.0_f64.powi(len - num_digits as i32)).round() * 10.0_f64.powi(num_digits as i32 - len);
-		return to_fixed_num(rounded, 0_i32.max(len - num_digits as i32));
+		to_fixed_num(rounded, 0_i32.max(len - num_digits as i32))
 	}
 
 	fn value_of(&self) -> String {
-		return self.to_string();
+		self.to_string()
 	}
 	fn to_json(&self) -> String {
-		return self.to_string();
+		self.to_string()
 	}
 	fn to_string_with_decimal_places(&self, places: i32) -> String {
-		return self.to_exponential(places);
+		self.to_exponential(places)
 	}
 
 	fn abs(&self) -> Decimal {
-		return from_mantissa_exponent_no_normalize(self.mantissa.abs(), self.exponent);
+		from_mantissa_exponent_no_normalize(self.mantissa.abs(), self.exponent)
 	}
 
 	fn neg(&self) -> Decimal {
-		return from_mantissa_exponent_no_normalize(-self.mantissa, self.exponent);
+		from_mantissa_exponent_no_normalize(-self.mantissa, self.exponent)
 	}
 	fn negate(&self) -> Decimal {
-		return self.neg();
+		self.neg()
 	}
 	fn negated(&self) -> Decimal {
-		return self.neg();
+		self.neg()
 	}
 
 	fn sgn(&self) -> i32 {
 		return if self.mantissa.is_sign_positive() {
 			1
-		} else if  self.mantissa.is_sign_negative() {
+		} else if self.mantissa.is_sign_negative() {
 			-1
 		} else {
 			0
 		};
 	}
 	fn sign(&self) -> i32 {
-		return self.sgn();
+		self.sgn()
 	}
 
 	fn round(&self) -> Decimal {
@@ -386,7 +481,7 @@ impl Decimal {
 			return new(self.to_number().round());
 		}
 
-		return from_decimal(self);
+		from_decimal(self)
 	}
 	fn trunc(&self) -> Decimal {
 		if self.exponent < 0.0 {
@@ -395,7 +490,7 @@ impl Decimal {
 			return new(self.to_number().trunc());
 		}
 
-		return from_decimal(self);
+		from_decimal(self)
 	}
 	fn floor(&self) -> Decimal {
 		if self.exponent < -1.0 {
@@ -403,12 +498,12 @@ impl Decimal {
 				new(0.0)
 			} else {
 				new(-1.0)
-			}
+			};
 		} else if self.exponent < MAX_SIGNIFICANT_DIGITS as f64 {
 			return new(self.to_number().floor());
 		}
 
-		return from_decimal(self);
+		from_decimal(self)
 	}
 	fn ceil(&self) -> Decimal {
 		if self.exponent < -1.0 {
@@ -421,81 +516,17 @@ impl Decimal {
 			return new(self.to_number().ceil());
 		}
 
-		return from_decimal(self);
-	}
-
-	fn add(&self, decimal: &Decimal) -> Decimal {
-		// Figure out which is bigger, shrink the mantissa of the smaller
-		// by the difference in exponents, add mantissas, normalize and return
-		// TODO: Optimizations and simplification may be possible, see https://github.com/Patashu/break_infinity.js/issues/8
-		if self.mantissa == 0.0 {
-			return from_decimal(decimal);
-		} else if decimal.mantissa == 0.0 {
-			return from_decimal(self);
-		}
-
-		let bigger_decimal;
-		let smaller_decimal;
-
-		if self.exponent >= decimal.exponent {
-			bigger_decimal = from_decimal(self);
-			smaller_decimal = from_decimal(&decimal);
-		} else {
-			bigger_decimal = from_decimal(&decimal);
-			smaller_decimal = from_decimal(self);
-		}
-
-		if bigger_decimal.exponent - smaller_decimal.exponent > MAX_SIGNIFICANT_DIGITS as f64 {
-			return bigger_decimal;
-		}
-
-		return from_mantissa_exponent((1e14 * bigger_decimal.mantissa) + 1e14 * &smaller_decimal.mantissa * power_of_10((&smaller_decimal.exponent - bigger_decimal.exponent) as i32).round(), bigger_decimal.exponent - 14 as f64);
-	}
-	fn plus(&self, decimal: &Decimal) -> Decimal {
-		return self.add(decimal);
-	}
-
-	fn sub(&self, decimal: &Decimal) -> Decimal {
-		return self.add(&decimal.neg());
-	}
-	fn subtract(&self, decimal: &Decimal) -> Decimal {
-		return self.sub(decimal);
-	}
-	fn minus(&self, decimal: &Decimal) -> Decimal {
-		return self.sub(decimal);
-	}
-
-	fn mul(&self, decimal: &Decimal) -> Decimal {
-		return from_mantissa_exponent(self.mantissa * decimal.mantissa, self.exponent + decimal.exponent);
-	}
-	fn multiply(&self, decimal: &Decimal) -> Decimal {
-		return self.mul(decimal);
-	}
-	fn times(&self, decimal: &Decimal) -> Decimal {
-		return self.mul(decimal);
-	}
-
-	fn div(&self, decimal: &Decimal) -> Decimal {
-		return self.mul(&decimal.recip());
-	}
-	fn divide(&self, decimal: &Decimal) -> Decimal {
-		return self.div(decimal);
-	}
-	fn divide_by(&self, decimal: &Decimal) -> Decimal {
-		return self.div(decimal);
-	}
-	fn divided_by(&self, decimal: &Decimal) -> Decimal {
-		return self.div(decimal);
+		from_decimal(self)
 	}
 
 	fn recip(&self) -> Decimal {
-		return from_mantissa_exponent(1.0 / self.mantissa, -self.exponent);
+		from_mantissa_exponent(1.0 / self.mantissa, -self.exponent)
 	}
 	fn reciprocal(&self) -> Decimal {
-		return self.recip();
+		self.recip()
 	}
 	fn reciprocate(&self) -> Decimal {
-		return self.recip();
+		self.recip()
 	}
 
 	/**
@@ -577,24 +608,24 @@ impl Decimal {
 			return 0;
 		}
 
-		return NAN as i32;
+		NAN as i32
 	}
 	fn compare(&self, decimal: &Decimal) -> i32 {
-		return self.cmp(decimal);
+		self.cmp(decimal)
 	}
 
 	fn eq(&self, decimal: &Decimal) -> bool {
-		return self.exponent == decimal.exponent && self.mantissa == decimal.exponent;
+		self.exponent == decimal.exponent && self.mantissa == decimal.exponent
 	}
 	fn equals(&self, decimal: &Decimal) -> bool {
-		return self.eq(decimal);
+		self.eq(decimal)
 	}
 
 	fn neq(&self, decimal: &Decimal) -> bool {
-		return !self.eq(decimal);
+		!self.eq(decimal)
 	}
 	fn not_equals(&self, decimal: &Decimal) -> bool {
-		return !self.neq(decimal);
+		!self.neq(decimal)
 	}
 
 	fn lt(&self, decimal: &Decimal) -> bool {
@@ -608,10 +639,10 @@ impl Decimal {
 			return decimal.mantissa > 0.0 && self.exponent < decimal.exponent;
 		}
 
-		return decimal.mantissa > 0.0 || self.exponent > decimal.exponent;
+		decimal.mantissa > 0.0 || self.exponent > decimal.exponent
 	}
 	fn lte(&self, decimal: &Decimal) -> bool {
-		return !self.gt(decimal);
+		!self.gt(decimal)
 	}
 
 	fn gt(&self, decimal: &Decimal) -> bool {
@@ -625,24 +656,24 @@ impl Decimal {
 			return decimal.mantissa < 0.0 || self.exponent > decimal.exponent;
 		}
 
-		return decimal.mantissa < 0.0 && self.exponent < decimal.exponent;
+		decimal.mantissa < 0.0 && self.exponent < decimal.exponent
 	}
 	fn gte(&self, decimal: &Decimal) -> bool {
-		return !self.lt(decimal);
+		!self.lt(decimal)
 	}
 
 	fn less_than_or_equal_to(&self, other: &Decimal) -> bool {
-		return self.cmp(other) < 1;
+		self.cmp(other) < 1
 	}
-	fn less_han(&self, other: &Decimal) -> bool{
-		return self.cmp(other) < 0;
+	fn less_han(&self, other: &Decimal) -> bool {
+		self.cmp(other) < 0
 	}
 
 	fn greater_than_or_equal_to(&self, other: &Decimal) -> bool {
-		return self.cmp(other) > -1;
+		self.cmp(other) > -1
 	}
 	fn greater_than(&self, other: &Decimal) -> bool {
-		return self.cmp(other) > 0;
+		self.cmp(other) > 0
 	}
 
 	fn min(&self, decimal: &Decimal) -> Decimal {
@@ -650,24 +681,24 @@ impl Decimal {
 			from_decimal(decimal)
 		} else {
 			from_decimal(self)
-		}
+		};
 	}
-	fn max(&self, decimal: &Decimal) -> Decimal{
+	fn max(&self, decimal: &Decimal) -> Decimal {
 		return if self.lt(decimal) {
 			from_decimal(decimal)
 		} else {
 			from_decimal(self)
-		}
+		};
 	}
 
 	fn clamp(&self, min: &Decimal, max: &Decimal) -> Decimal {
-		return self.max(min).min(max);
+		self.max(min).min(max)
 	}
 	fn clamp_min(&self, min: &Decimal) -> Decimal {
-		return self.max(min);
+		self.max(min)
 	}
 	fn clamp_max(&self, max: &Decimal) -> Decimal {
-		return self.min(max);
+		self.min(max)
 	}
 
 	fn cmp_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> i32 {
@@ -675,10 +706,10 @@ impl Decimal {
 			0
 		} else {
 			self.cmp(decimal)
-		}
+		};
 	}
 	fn compare_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> i32 {
-		return self.cmp_tolerance(decimal, tolerance);
+		self.cmp_tolerance(decimal, tolerance)
 	}
 
 	/**
@@ -688,61 +719,61 @@ impl Decimal {
 	 */
 	fn eq_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> bool {
 		// return abs(a-b) <= tolerance * max(abs(a), abs(b))
-		return self.sub(decimal).abs().lte(&self.abs().max(&decimal.abs().mul(tolerance)));
+		(self - decimal).abs().lte(&self.abs().max(&(decimal.abs() * tolerance)))
 	}
 	fn equals_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> bool {
-		return self.eq_tolerance(decimal, tolerance);
+		self.eq_tolerance(decimal, tolerance)
 	}
 
 	fn neq_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> bool {
-		return !self.eq_tolerance(decimal, tolerance);
+		!self.eq_tolerance(decimal, tolerance)
 	}
 	fn not_equals_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> bool {
-		return self.neq_tolerance(decimal, tolerance);
+		self.neq_tolerance(decimal, tolerance)
 	}
 
 	fn lt_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> bool {
-		return !self.eq_tolerance(decimal, tolerance) && self.lt(decimal);
+		!self.eq_tolerance(decimal, tolerance) && self.lt(decimal)
 	}
 	fn lte_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> bool {
-		return self.eq_tolerance(decimal, tolerance) || self.lt(decimal);
+		self.eq_tolerance(decimal, tolerance) || self.lt(decimal)
 	}
 
 	fn gt_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> bool {
-		return !self.eq_tolerance(decimal, tolerance) && self.gt(decimal);
+		!self.eq_tolerance(decimal, tolerance) && self.gt(decimal)
 	}
 	fn gte_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> bool {
-		return self.eq_tolerance(decimal, tolerance) || self.gt(decimal);
+		self.eq_tolerance(decimal, tolerance) || self.gt(decimal)
 	}
 
 	fn log10(&self) -> f64 {
-		return self.exponent + self.mantissa.log10();
+		self.exponent + self.mantissa.log10()
 	}
 	fn abs_log10(&self) -> f64 {
-		return self.exponent + self.mantissa.abs().log10();
+		self.exponent + self.mantissa.abs().log10()
 	}
 	fn p_log10(&self) -> f64 {
 		return if self.mantissa <= 0.0 || self.exponent < 0.0 {
 			0.0
 		} else {
 			self.log10()
-		}
+		};
 	}
 
 	fn log(&self, base: f64) -> f64 {
 		// UN-SAFETY: Most incremental game cases are log(number := 1 or greater, base := 2 or greater).
 		// We assume this to be true and thus only need to return a number, not a Decimal,
-		return LN_10 / base.ln() * self.log10();
+		LN_10 / base.ln() * self.log10()
 	}
 	fn logarithm(&self, base: f64) -> f64 {
-		return self.log(base);
+		self.log(base)
 	}
 
 	fn log2(&self) -> f64 {
-		return 3.32192809488736234787 * self.log10();
+		3.32192809488736234787 * self.log10()
 	}
-	fn ln(&self) -> f64{
-		return LN_10 * self.log10();
+	fn ln(&self) -> f64 {
+		LN_10 * self.log10()
 	}
 
 	fn pow(&self, decimal: &Decimal) -> Decimal {
@@ -785,10 +816,10 @@ impl Decimal {
 			return result.neg();
 		}
 
-		return result;
+		result
 	}
 	fn pow_base(&self, decimal: &Decimal) -> Decimal {
-		return decimal.pow(self);
+		decimal.pow(self)
 	}
 
 	fn factorial(&self) -> Decimal {
@@ -796,19 +827,19 @@ impl Decimal {
 		//  https://en.wikipedia.org/wiki/Stirling%27s_approximation#Versions_suitable_for_calculators
 		let n = self.to_number() + 1.0;
 		return new(n / E * (n * f64::sinh(1.0 / n) + 1.0 / (810.0 * n.powi(6)))).pow(&new(n))
-			.mul(&new(f64::sqrt(2.0 * PI / n)));
+			* &new(f64::sqrt(2.0 * PI / n));
 	}
 	fn exp(&self) -> Decimal {
 		// Fast track: if -706 < this < 709, we can use regular exp.
 		let number = self.to_number();
 		if -706.0 < number && number < 709.0 {
-			return new(f64::exp(number))
+			return new(f64::exp(number));
 		}
-		return new(E).pow(self);
+		new(E).pow(self)
 	}
 
 	fn sqr(&self) -> Decimal {
-		return from_mantissa_exponent(self.mantissa.powi(2), self.exponent * 2.0);
+		from_mantissa_exponent(self.mantissa.powi(2), self.exponent * 2.0)
 	}
 	fn sqrt(&self) -> Decimal {
 		if self.mantissa < 0.0 {
@@ -817,10 +848,10 @@ impl Decimal {
 			// Mod of a negative number is negative, so != means '1 or -1'
 			return from_mantissa_exponent(f64::sqrt(self.mantissa) * 3.16227766016838, (self.exponent / 2.0).floor());
 		}
-		return from_mantissa_exponent(f64::sqrt(self.mantissa), (self.exponent / 2.0).floor());
+		from_mantissa_exponent(f64::sqrt(self.mantissa), (self.exponent / 2.0).floor())
 	}
 	fn cube(&self) -> Decimal {
-		return from_mantissa_exponent(self.mantissa.powi(3), self.exponent * 3.0);
+		from_mantissa_exponent(self.mantissa.powi(3), self.exponent * 3.0)
 	}
 	fn cbrt(&self) -> Decimal {
 		let mut sign = 1;
@@ -843,32 +874,32 @@ impl Decimal {
 			return from_mantissa_exponent(new_mantissa * 4.6415888336127789, (self.exponent / 3.0).floor());
 		}
 
-		return from_mantissa_exponent(new_mantissa, (self.exponent / 3.0).floor());
+		from_mantissa_exponent(new_mantissa, (self.exponent / 3.0).floor())
 	}
 
 	// Some hyperbolic trigonometry functions that happen to be easy
 	fn sinh(&self) -> Decimal {
-		return self.exp().sub(&self.neg().exp()).div(&new(2.0));
+		(self.exp() - &self.neg().exp()) / &new(2.0)
 	}
 	fn cosh(&self) -> Decimal {
-		return self.exp().add(&self.neg().exp()).div(&new(2.0));
+		(self.exp() + &self.neg().exp()) / &new(2.0)
 	}
 	fn tanh(&self) -> Decimal {
-		return self.sinh().div(&self.cosh());
+		return self.sinh() / &self.cosh();
 	}
 
 	fn asinh(&self) -> f64 {
-		return (self.add(&self.sqr().add(&new(1.0)).sqrt())).ln();
+		return (self + &(self.sqr() + &new(1.0)).sqrt()).ln();
 	}
 	fn acosh(&self) -> f64 {
-		return (self.add(&self.sqr().sub(&new(1.0)).sqrt())).ln();
+		return (self + &(self.sqr() - &new(1.0)).sqrt()).ln();
 	}
 	fn atanh(&self) -> f64 {
 		if self.abs().gte(&new(1.0)) {
 			return NAN;
 		}
 
-		return (self.add(&new(1.0)).div(&new(1.0).sub(self))).ln() / 2.0;
+		return ((&new(1.0) + self) / &(new(1.0) - self)).ln() / 2.0;
 	}
 
 	fn dp(&self) -> i32 {
@@ -894,7 +925,7 @@ impl Decimal {
 		};
 	}
 	fn decimal_places(&self) -> i32 {
-		return self.dp();
+		self.dp()
 	}
 
 	/**
@@ -905,263 +936,229 @@ impl Decimal {
 			return from_decimal(self);
 		}
 
-		return self.pow(&new(10.0_f64.powf(-ascensions)));
+		self.pow(&new(10.0_f64.powf(-ascensions)))
 	}
 
 	/**
 	 * Joke function from Cookie Clicker. It's 'egg'
 	 */
 	fn egg(&self) -> Decimal {
-		return self.add(&new(9.0));
+		self + &new(9.0)
 	}
 }
 
+
 pub fn normalize(decimal: &mut Decimal) -> Decimal {
-	return decimal.normalize();
+	decimal.normalize()
 }
 
 pub fn abs(decimal: &Decimal) -> Decimal {
-	return decimal.abs();
+	decimal.abs()
 }
 
 pub fn neg(decimal: &Decimal) -> Decimal {
-	return decimal.neg();
+	decimal.neg()
 }
 pub fn negate(decimal: &Decimal) -> Decimal {
-	return decimal.neg();
+	decimal.neg()
 }
 pub fn negated(decimal: &Decimal) -> Decimal {
-	return decimal.neg();
+	decimal.neg()
 }
 
 pub fn sgn(decimal: &Decimal) -> i32 {
-	return decimal.sgn();
+	decimal.sgn()
 }
 pub fn sign(decimal: &Decimal) -> i32 {
-	return decimal.sign();
+	decimal.sign()
 }
 
 pub fn round(decimal: &Decimal) -> Decimal {
-	return decimal.round();
+	decimal.round()
 }
 pub fn trunc(decimal: &Decimal) -> Decimal {
-	return decimal.trunc();
+	decimal.trunc()
 }
 pub fn floor(decimal: &Decimal) -> Decimal {
-	return decimal.floor();
+	 decimal.floor()
 }
 pub fn ceil(decimal: &Decimal) -> Decimal {
-	return decimal.ceil();
-}
-
-pub fn add(decimal: &Decimal, other: &Decimal) -> Decimal {
-	return decimal.add(other);
-}
-pub fn plus(decimal: &Decimal, other: &Decimal) -> Decimal {
-	return decimal.add(other);
-}
-
-pub fn sub(decimal: &Decimal, other: &Decimal) -> Decimal {
-	return decimal.sub(other);
-}
-pub fn subtract(decimal: &Decimal, other: &Decimal) -> Decimal {
-	return decimal.sub(other);
-}
-pub fn minus(decimal: &Decimal, other: &Decimal) -> Decimal {
-	return decimal.sub(other);
-}
-
-pub fn mul(decimal: &Decimal, other: &Decimal) -> Decimal {
-	return decimal.mul(other);
-}
-pub fn multiply(decimal: &Decimal, other: &Decimal) -> Decimal {
-	return decimal.mul(other);
-}
-pub fn times(decimal: &Decimal, other: &Decimal) -> Decimal {
-	return decimal.mul(other);
-}
-
-pub fn div(decimal: &Decimal, other: &Decimal) -> Decimal {
-	return decimal.div(other);
-}
-pub fn divide(decimal: &Decimal, other: &Decimal) -> Decimal {
-	return decimal.div(other);
+	 decimal.ceil()
 }
 
 pub fn recip(decimal: &Decimal) -> Decimal {
-	return decimal.recip();
+	decimal.recip()
 }
 pub fn reciprocal(decimal: &Decimal) -> Decimal {
-	return decimal.recip();
+	decimal.recip()
 }
 pub fn reciprocate(decimal: &Decimal) -> Decimal {
-	return decimal.recip();
+	decimal.recip()
 }
 
 pub fn cmp(decimal: &Decimal, other: &Decimal) -> i32 {
-	return decimal.cmp(other);
+	decimal.cmp(other)
 }
 pub fn compare(decimal: &Decimal, other: &Decimal) -> i32 {
-	return decimal.cmp(other);
+	decimal.cmp(other)
 }
 
 pub fn eq(decimal: &Decimal, other: &Decimal) -> bool {
-	return decimal.eq(other);
+	decimal.eq(other)
 }
 pub fn equals(decimal: &Decimal, other: &Decimal) -> bool {
-	return decimal.eq(other);
+	decimal.eq(other)
 }
 
 pub fn neq(decimal: &Decimal, other: &Decimal) -> bool {
-	return decimal.neq(other);
+	decimal.neq(other)
 }
 pub fn not_equals(decimal: &Decimal, other: &Decimal) -> bool {
-	return decimal.neq(other);
+	 decimal.neq(other)
 }
 
 pub fn lt(decimal: &Decimal, other: &Decimal) -> bool {
-	return decimal.lt(other);
+	decimal.lt(other)
 }
 pub fn lte(decimal: &Decimal, other: &Decimal) -> bool {
-	return decimal.lte(other);
+	decimal.lte(other)
 }
 
 pub fn gt(decimal: &Decimal, other: &Decimal) -> bool {
-	return decimal.gt(other);
+	decimal.gt(other)
 }
 pub fn gte(decimal: &Decimal, other: &Decimal) -> bool {
-	return decimal.gte(other);
+	decimal.gte(other)
 }
 
 pub fn min(decimal: &Decimal, other: &Decimal) -> Decimal {
-	return decimal.min(other);
+	decimal.min(other)
 }
 pub fn max(decimal: &Decimal, other: &Decimal) -> Decimal {
-	return decimal.max(other);
+	decimal.max(other)
 }
 
 pub fn clamp(decimal: &Decimal, min: &Decimal, max: &Decimal) -> Decimal {
-	return decimal.clamp(min, max);
+	decimal.clamp(min, max)
 }
 pub fn clamp_min(decimal: &Decimal, min: &Decimal) -> Decimal {
-	return decimal.clamp_min(min);
+	decimal.clamp_min(min)
 }
 pub fn clamp_max(decimal: &Decimal, max: &Decimal) -> Decimal {
-	return decimal.clamp_max(max);
+	decimal.clamp_max(max)
 }
 
 pub fn cmp_tolerance(decimal: &Decimal, other: &Decimal, tolerance: &Decimal) -> i32 {
-	return decimal.cmp_tolerance(other, tolerance);
+	decimal.cmp_tolerance(other, tolerance)
 }
 pub fn compare_tolerance(decimal: &Decimal, other: &Decimal, tolerance: &Decimal) -> i32 {
-	return decimal.cmp_tolerance(other, tolerance);
+	decimal.cmp_tolerance(other, tolerance)
 }
 
 pub fn eq_tolerance(decimal: &Decimal, other: &Decimal, tolerance: &Decimal) -> bool {
-	return decimal.eq_tolerance(other, tolerance);
+	decimal.eq_tolerance(other, tolerance)
 }
 pub fn equals_tolerance(decimal: &Decimal, other: &Decimal, tolerance: &Decimal) -> bool {
-	return decimal.equals_tolerance(other, tolerance);
+	 decimal.equals_tolerance(other, tolerance)
 }
 
 pub fn neq_tolerance(decimal: &Decimal, other: &Decimal, tolerance: &Decimal) -> bool {
-	return decimal.neq_tolerance(other, tolerance);
+	decimal.neq_tolerance(other, tolerance)
 }
 pub fn not_equals_tolerance(decimal: &Decimal, other: &Decimal, tolerance: &Decimal) -> bool {
-	return decimal.not_equals_tolerance(other, tolerance);
+	decimal.not_equals_tolerance(other, tolerance)
 }
 
 pub fn lt_tolerance(decimal: &Decimal, other: &Decimal, tolerance: &Decimal) -> bool {
-	return decimal.lt_tolerance(other, tolerance);
+	decimal.lt_tolerance(other, tolerance)
 }
 pub fn lte_tolerance(decimal: &Decimal, other: &Decimal, tolerance: &Decimal) -> bool {
-	return decimal.lte_tolerance(other, tolerance);
+	decimal.lte_tolerance(other, tolerance)
 }
 
 pub fn gt_tolerance(decimal: &Decimal, other: &Decimal, tolerance: &Decimal) -> bool {
-	return decimal.gt_tolerance(other, tolerance);
+	decimal.gt_tolerance(other, tolerance)
 }
 pub fn gte_tolerance(decimal: &Decimal, other: &Decimal, tolerance: &Decimal) -> bool {
-	return decimal.gte_tolerance(other, tolerance);
+	decimal.gte_tolerance(other, tolerance)
 }
 
 pub fn log10(decimal: &Decimal) -> f64 {
-	return decimal.log10();
+	decimal.log10()
 }
 pub fn abs_log10(decimal: &Decimal) -> f64 {
-	return decimal.abs_log10();
+	decimal.abs_log10()
 }
 pub fn p_log10(decimal: &Decimal) -> f64 {
-	return decimal.p_log10();
+	decimal.p_log10()
 }
 
 pub fn log(decimal: &Decimal, base: f64) -> f64 {
-	return decimal.log(base);
+	decimal.log(base)
 }
 pub fn logarithm(decimal: &Decimal, base: f64) -> f64 {
-	return decimal.log(base);
+	decimal.log(base)
 }
 
 pub fn log2(decimal: &Decimal) -> f64 {
-	return decimal.log2();
+	decimal.log2()
 }
 pub fn ln(decimal: &Decimal) -> f64 {
-	return decimal.ln();
+	decimal.ln()
 }
 
 pub fn pow10(exp: f64) -> Decimal {
-	return from_mantissa_exponent(10.0_f64.powf(exp % 1.0), exp.trunc());
+	from_mantissa_exponent(10.0_f64.powf(exp % 1.0), exp.trunc())
 }
 pub fn pow(decimal: &Decimal, other: &Decimal) -> Decimal {
-	return decimal.pow(other);
+	decimal.pow(other)
 }
 
 pub fn factorial(decimal: &Decimal) -> Decimal {
-	return decimal.factorial();
+	decimal.factorial()
 }
 pub fn exp(decimal: &Decimal) -> Decimal {
-	return decimal.exp();
+	decimal.exp()
 }
 
 pub fn sqr(decimal: &Decimal) -> Decimal {
-	return decimal.sqr();
+	decimal.sqr()
 }
 pub fn sqrt(decimal: &Decimal) -> Decimal {
-	return decimal.sqrt();
+	decimal.sqrt()
 }
-
 pub fn cube(decimal: &Decimal) -> Decimal {
-	return decimal.cube();
+	decimal.cube()
 }
 pub fn cbrt(decimal: &Decimal) -> Decimal {
-	return decimal.cbrt();
+	decimal.cbrt()
 }
 
 pub fn sinh(decimal: &Decimal) -> Decimal {
-	return decimal.sinh();
+	 decimal.sinh()
 }
 pub fn cosh(decimal: &Decimal) -> Decimal {
-	return decimal.cosh();
+	decimal.cosh()
 }
 pub fn tanh(decimal: &Decimal) -> Decimal {
-	return decimal.tanh();
+	decimal.tanh()
 }
 
 pub fn asinh(decimal: &Decimal) -> f64 {
-	return decimal.asinh();
+	decimal.asinh()
 }
 pub fn acosh(decimal: &Decimal) -> f64 {
-	return decimal.acosh();
+	decimal.acosh()
 }
 pub fn atanh(decimal: &Decimal) -> f64 {
-	return decimal.atanh();
+	decimal.atanh()
 }
 
 pub fn dp(decimal: &Decimal) -> i32 {
-	return decimal.dp();
+	decimal.dp()
 }
 pub fn decimal_places(decimal: &Decimal) -> i32 {
-	return decimal.dp();
+	decimal.dp()
 }
 
 /**
@@ -1170,10 +1167,10 @@ pub fn decimal_places(decimal: &Decimal) -> i32 {
  * multiply by priceRatio, already own currentOwned), how much of it can you buy?
  * Adapted from Trimps source code.
  */
-pub fn afford_geometric_series(resources_available: &Decimal, price_start:&Decimal, price_ratio: &Decimal, current_owned: &Decimal) -> Decimal {
-	let actual_start = price_start.mul(&price_ratio.pow(current_owned));
-	return new(resources_available.div(&actual_start).mul(&price_ratio.sub(&new(1.0)))
-		.add(&new(1.0)).log10() / price_ratio.log10()).floor();
+pub fn afford_geometric_series(resources_available: &Decimal, price_start: &Decimal, price_ratio: &Decimal, current_owned: &Decimal) -> Decimal {
+	let actual_start = price_start * &price_ratio.pow(current_owned);
+	new((resources_available / &actual_start * &(price_ratio - &new(1.0))
+		+ &new(1.0)).log10() / price_ratio.log10()).floor()
 }
 
 /**
@@ -1181,8 +1178,8 @@ pub fn afford_geometric_series(resources_available: &Decimal, price_start:&Decim
  * the initial price is priceStart and it multiplies by priceRatio each purchase?
  */
 pub fn sum_geometric_series(num_items: &Decimal, price_start: &Decimal, price_ratio: &Decimal, current_owned: &Decimal) -> Decimal {
-	return price_start.mul(&price_ratio.pow(current_owned)).mul(&new(1.0).sub(&price_ratio.pow(num_items)))
-		.div(&new(1.0).sub(price_ratio));
+	price_start * &price_ratio.pow(current_owned) * &(new(1.0) - &price_ratio.pow(num_items))
+		/ &(new(1.0) - price_ratio)
 }
 
 /**
@@ -1194,11 +1191,11 @@ pub fn afford_arithmetic_series(resources_available: &Decimal, price_start: &Dec
 	//  n = (-(a-d/2) + sqrt((a-d/2)^2+2dS))/d
 	//  where a is actual_start, d is price_add and S is resources_available
 	//  then floor it and you're done!
-	let actual_start = price_start.add(&current_owned.mul(price_add));
-	let b = actual_start.sub(&price_add.div(&new(2.0)));
+	let actual_start = price_start + &(current_owned * price_add);
+	let b = actual_start - &(price_add / &new(2.0));
 	let b2 = b.pow(&new(2.0));
-	return b.neg().add(&b2.add(&price_add.mul(resources_available).mul(&new(2.0))).sqrt())
-		.div(price_add).floor();
+	(b.neg() + &((b2 + &((price_add * resources_available) * &new(2.0))).sqrt()
+		/ price_add)).floor()
 }
 
 /**
@@ -1207,10 +1204,10 @@ pub fn afford_arithmetic_series(resources_available: &Decimal, price_start: &Dec
  * Adapted from http://www.mathwords.com/a/arithmetic_series.htm
  */
 pub fn sum_arithmetic_series(num_items: &Decimal, price_start: &Decimal, price_add: &Decimal, current_owned: &Decimal) -> Decimal {
-	let actual_start = price_start.add(&current_owned.mul(price_add)); // (n/2)*(2*a+(n-1)*d)
+	let actual_start = price_start + &(current_owned * price_add); // (n/2)*(2*a+(n-1)*d)
 
-	return num_items.div(&new(2.0)).mul(&actual_start.mul(&new(2.0))
-		.add(&num_items.sub(&new(1.0)).mul(price_add)));
+	num_items / &new(2.0) * &(actual_start * &new(2.0) + &(num_items - &new(1.0))
+		+ num_items - &new(1.0)) * price_add
 }
 
 /**
@@ -1220,7 +1217,7 @@ pub fn sum_arithmetic_series(num_items: &Decimal, price_start: &Decimal, price_a
  * http://cookieclicker.wikia.com/wiki/Frozen_Cookies_(JavaScript_Add-on)#Efficiency.3F_What.27s_that.3F
  */
 pub fn efficiency_of_purchase(cost: &Decimal, current_rp_s: &Decimal, delta_rp_s: &Decimal) -> Decimal {
-	return cost.div(current_rp_s).add(&cost.div(delta_rp_s));
+	return cost / &(current_rp_s + &(cost / delta_rp_s));
 }
 
 pub fn random_decimal_for_testing(abs_max_exponent: f64) -> Decimal {
@@ -1230,7 +1227,7 @@ pub fn random_decimal_for_testing(abs_max_exponent: f64) -> Decimal {
 	if rand * 5.0 < 1.0 {
 		return Decimal {
 			mantissa: 0.0,
-			exponent: 0.0
+			exponent: 0.0,
 		};
 	}
 
@@ -1239,14 +1236,14 @@ pub fn random_decimal_for_testing(abs_max_exponent: f64) -> Decimal {
 	let mut mantissa: f64 = random();
 	mantissa *= 10.0;
 	if rand < 1.0 {
-		mantissa =  mantissa.round();
+		mantissa = mantissa.round();
 	}
 
 	let rand: f64 = random();
 	let rand = rand * 2.0 - 1.0;
 	mantissa *= if rand.is_sign_positive() {
 		1.0
-	} else if  rand.is_sign_negative() {
+	} else if rand.is_sign_negative() {
 		-1.0
 	} else {
 		0.0
@@ -1276,7 +1273,9 @@ pub fn random_decimal_for_testing(abs_max_exponent: f64) -> Decimal {
 
 #[cfg(test)]
 mod tests {
-	use break_infinity as bi;
+	use std::f64::{INFINITY, NAN, NEG_INFINITY};
+
+	use crate as bi;
 
 	#[test]
 	fn powers_of_10() {
@@ -1292,8 +1291,8 @@ mod tests {
 		assert_eq!(bi::new(INFINITY).to_string(), "Infinity");
 		assert_eq!(bi::new(NEG_INFINITY).to_string(), "-Infinity");
 
-		assert_eq!(new(100.0).to_string(), "100");
-		assert_eq!(new(1e12).to_string(), "1000000000000");
-		assert_eq!(new(1e308).to_string(), "1e+308");
+		assert_eq!(bi::new(100.0).to_string(), "100");
+		assert_eq!(bi::new(1e12).to_string(), "1000000000000");
+		assert_eq!(bi::new(1e308).to_string(), "1e+308");
 	}
 }

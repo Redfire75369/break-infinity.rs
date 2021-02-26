@@ -6,7 +6,7 @@ It has the `Decimal` struct which is able to reach a maximum value of 1e1.79e308
 You can install this package via Cargo by adding these lines to your `Cargo.toml`
 ```toml
 [dependencies]
-break_infinity="0.1.0"
+break_infinity="0.2.0"
 # ...
 ```
 
@@ -15,19 +15,22 @@ This library allows simple creation of `Decimal`'s through many different method
 ```rust
 use break_infinity as bi;
 
-let x = bi::new(123.4567);
-let y = bi::from_string("123456.7e-3");
-let z = bi::from_decimal(x);
+fn main() {
+	let x = bi::new(123.4567);
+	let y = bi::from_string(&String::from("123456.7e-3"));
+	let z = bi::from_decimal(x);
+}
 ```
 Methods that return a `Decimal` can also be chained
 ```rust
 use break_infinity as bi;
 
-let short = x.divided_by(y).plus(z).times(9).floor();
-let long = x.times("1.23456780123456789e+9")
-	.plus(9876.5432321)
-	.divided_by("4444562598.111772")
-	.ceil();
+fn main() {
+	let short = ((x / &y + &z) * &bi::new(9.0)).floor();
+	let long = x.ceil()
+		.exp()
+		.log10();
+}
 ```
 For a complete list of functions and methods, refer to the [docs](https://docs.rs/break_infinity).
 
