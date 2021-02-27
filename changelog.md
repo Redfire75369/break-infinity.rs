@@ -12,21 +12,18 @@ This project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0
   ### Security
 -->
 
-## [Unreleased]
+## [v0.2.0] - 27/02/2021
 ### Added
 - Binary Operators for Addition, Subtraction, Multiplication and Division
-
-### Fixed
-- Tests
 
 ### Removed
 - Functions for Addition, Subtraction, Multiplication and Division
 
-## [v0.1.0] - 07/02/20
+## [v0.1.0] - 19/12/2020
 ### Added
 - Decimal struct
 - Function implementations for Decimal
 - Static functions
 
-[Unreleased]: https://github.com/Redfire75369/Fission-Simulator/compare/05b2c2e215296715d75fee23a018a3904e0808e4..master
+[v0.2.0]: https://github.com/Redfire75369/Fission-Simulator/compare/05b2c2e215296715d75fee23a018a3904e0808e4..master
 [v0.1.0]: https://github.com/Redfire75369/Fission-Simulator/tree/05b2c2e215296715d75fee23a018a3904e0808e4

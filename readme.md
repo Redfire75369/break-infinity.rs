@@ -3,7 +3,7 @@ A port of [Patashu's break_infinity.js](https://github.com/Patashu/break_infinit
 It has the `Decimal` struct which is able to reach a maximum value of 1e1.79e308 instead of `f64`'s maximum of 1.79e308.
 
 ## Installation
-You can install this package via Cargo by adding these lines to your `Cargo.toml`
+You can install this package via Cargo by adding these lines to your `Cargo.toml`.
 ```toml
 [dependencies]
 break_infinity="0.2.0"
