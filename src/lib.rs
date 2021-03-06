@@ -1,17 +1,34 @@
-use std::f64::{
-	consts::{
-		E,
-		LN_10,
-		PI,
+use std::{
+	cmp::{
+		Ordering::*
 	},
-	INFINITY,
-	NAN,
-	NEG_INFINITY,
+	f64::{
+		consts::{
+			E,
+			LN_10,
+			PI,
+		},
+		INFINITY,
+		NAN,
+		NEG_INFINITY,
+	},
+	fmt::{
+		Display,
+		Formatter,
+		Result
+	},
+	ops::{
+		Add,
+		Div,
+		Mul,
+		Neg,
+		Sub,
+	}
 };
-use std::ops;
 
 use once_cell::sync::Lazy;
 use rand::prelude::*;
+use std::cmp::Ordering;
 
 pub const MAX_SAFE_INTEGER: f64 = 9007199254740991.0;
 
@@ -19,7 +36,6 @@ pub const MAX_SAFE_INTEGER: f64 = 9007199254740991.0;
  * Highest value you can safely put here is MAX_SAFE_INTEGER
  */
 pub const MAX_SIGNIFICANT_DIGITS: i32 = 17;
-
 
 pub const EXP_LIMIT: f64 = 1.79e308;
 
@@ -37,7 +53,7 @@ pub const NUMBER_EXP_MIN: i32 = -324;
  */
 pub const NUMBER_EXP_MAX: i32 = 308;
 
-fn pad_end(string: String, max_length: i32, fill_string: String) -> String {
+pub fn pad_end(string: String, max_length: i32, fill_string: String) -> String {
 	if f32::is_nan(max_length as f32) || f32::is_infinite(max_length as f32) {
 		return string;
 	}
@@ -66,10 +82,10 @@ fn pad_end(string: String, max_length: i32, fill_string: String) -> String {
 	return String::from(string).to_owned() + truncated.as_str();
 }
 
-fn to_fixed(num: f64, places: i32) -> String {
+pub fn to_fixed(num: f64, places: i32) -> String {
 	String::from(&num.to_string().as_str()[0..(places as usize)])
 }
-fn to_fixed_num(num: f64, places: i32) -> f64 {
+pub fn to_fixed_num(num: f64, places: i32) -> f64 {
 	String::from(&num.to_string().as_str()[0..(places as usize)]).parse::<f64>().unwrap()
 }
 
@@ -160,13 +176,19 @@ pub fn from_string(string: &String) -> Decimal {
 	};
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct Decimal {
 	mantissa: f64,
 	exponent: f64,
 }
 
-impl ops::Add<&Decimal> for &Decimal {
+impl Display for Decimal {
+	fn fmt(&self, f: &mut Formatter<'_>) -> Result {
+		write!(f, "{}", self.to_string())
+	}
+}
+
+impl Add<&Decimal> for &Decimal {
 	type Output = Decimal;
 
 	fn add(self, decimal: &Decimal) -> Decimal {
@@ -194,61 +216,253 @@ impl ops::Add<&Decimal> for &Decimal {
 			return bigger_decimal;
 		}
 
-		from_mantissa_exponent((1e14 * bigger_decimal.mantissa) + 1e14 * &smaller_decimal.mantissa * power_of_10((&smaller_decimal.exponent - bigger_decimal.exponent) as i32).round(), bigger_decimal.exponent - 14 as f64)
+		from_mantissa_exponent((1e14 * bigger_decimal.mantissa)
+								   + 1e14 * &smaller_decimal.mantissa * power_of_10((&smaller_decimal.exponent - bigger_decimal.exponent) as i32),
+							   bigger_decimal.exponent - 14.0)
 	}
 }
-impl ops::Add<&Decimal> for Decimal {
+impl Add<&Decimal> for Decimal {
 	type Output = Decimal;
 
 	fn add(self, decimal: &Decimal) -> Decimal {
 		&self.clone() + decimal
 	}
 }
+impl Add<Decimal> for &Decimal {
+	type Output = Decimal;
 
-impl ops::Sub<&Decimal> for &Decimal {
+	fn add(self, decimal: Decimal) -> Decimal {
+		self + &decimal.clone()
+	}
+}
+impl Add<Decimal> for Decimal {
+	type Output = Decimal;
+
+	fn add(self, decimal: Decimal) -> Decimal {
+		&self.clone() + &decimal.clone()
+	}
+}
+
+impl Sub<&Decimal> for &Decimal {
 	type Output = Decimal;
 
 	fn sub(self, decimal: &Decimal) -> Decimal {
 		self + &decimal.neg()
 	}
 }
-impl ops::Sub<&Decimal> for Decimal {
+impl Sub<&Decimal> for Decimal {
 	type Output = Decimal;
 
 	fn sub(self, decimal: &Decimal) -> Decimal {
 		&self.clone() - decimal
 	}
 }
+impl Sub<Decimal> for &Decimal {
+	type Output = Decimal;
 
-impl ops::Mul<&Decimal> for &Decimal {
+	fn sub(self, decimal: Decimal) -> Decimal {
+		self - &decimal.clone()
+	}
+}
+impl Sub<Decimal> for Decimal {
+	type Output = Decimal;
+
+	fn sub(self, decimal: Decimal) -> Decimal {
+		&self.clone() - &decimal.clone()
+	}
+}
+
+impl Mul<&Decimal> for &Decimal {
 	type Output = Decimal;
 
 	fn mul(self, decimal: &Decimal) -> Decimal {
 		from_mantissa_exponent(self.mantissa * decimal.mantissa, self.exponent + decimal.exponent)
 	}
 }
-impl ops::Mul<&Decimal> for Decimal {
+impl Mul<&Decimal> for Decimal {
 	type Output = Decimal;
 
 	fn mul(self, decimal: &Decimal) -> Decimal {
 		&self.clone() * decimal
 	}
 }
+impl Mul<Decimal> for &Decimal {
+	type Output = Decimal;
 
-impl ops::Div<&Decimal> for &Decimal {
+	fn mul(self, decimal: Decimal) -> Decimal {
+		self * &decimal.clone()
+	}
+}
+impl Mul<Decimal> for Decimal {
+	type Output = Decimal;
+
+	fn mul(self, decimal: Decimal) -> Decimal {
+		&self.clone() * &decimal.clone()
+	}
+}
+
+impl Div<&Decimal> for &Decimal {
 	type Output = Decimal;
 
 	fn div(self, decimal: &Decimal) -> Decimal {
 		self * &decimal.recip()
 	}
 }
-impl ops::Div<&Decimal> for Decimal {
+impl Div<&Decimal> for Decimal {
 	type Output = Decimal;
 
 	fn div(self, decimal: &Decimal) -> Decimal {
 		&self.clone() / decimal
 	}
 }
+impl Div<Decimal> for &Decimal {
+	type Output = Decimal;
+
+	fn div(self, decimal: Decimal) -> Decimal {
+		self / &decimal.clone()
+	}
+}
+impl Div<Decimal> for Decimal {
+	type Output = Decimal;
+
+	fn div(self, decimal: Decimal) -> Decimal {
+		&self.clone() / &decimal.clone()
+	}
+}
+
+impl Neg for &Decimal {
+	type Output = Decimal;
+
+	fn neg(self) -> Decimal {
+		from_mantissa_exponent_no_normalize(-self.mantissa, self.exponent)
+	}
+}
+impl Neg for Decimal {
+	type Output = Decimal;
+
+	fn neg(self) -> Decimal {
+		let decimal = &self.clone();
+		from_mantissa_exponent_no_normalize(-decimal.mantissa, decimal.exponent)
+	}
+}
+
+impl PartialOrd for Decimal {
+	fn partial_cmp(&self, decimal: &Self) -> Option<Ordering> {
+		/*
+		From smallest to largest:
+		-3e100
+		-1e100
+		-3e99
+		-1e99
+		-3e0
+		-1e0
+		-3e-99
+		-1e-99
+		-3e-100
+		-1e-100
+		0
+		1e-100
+		3e-100
+		1e-99
+		3e-99
+		1e0
+		3e0
+		1e99
+		3e99
+		1e100
+		3e100
+		*/
+
+		Some(self.cmp(decimal))
+	}
+
+	fn lt(&self, other: &Decimal) -> bool {
+		self.cmp(other) == Less
+	}
+	fn le(&self, other: &Decimal) -> bool {
+		self.cmp(other) == Less || self.cmp(other) == Equal
+	}
+
+	fn gt(&self, other: &Decimal) -> bool {
+		self.cmp(other) == Greater
+	}
+	fn ge(&self, other: &Decimal) -> bool {
+		self.cmp(other) == Greater || self.cmp(other) == Equal
+	}
+}
+impl Ord for Decimal {
+	fn cmp(&self, decimal: &Decimal) -> Ordering {
+		if self.mantissa == 0.0 {
+			if decimal.mantissa == 0.0 {
+				Equal
+			} else if decimal.mantissa < 0.0 {
+				Greater
+			} else {
+				Less
+			}
+		} else if decimal.mantissa == 0.0 {
+			if self.mantissa < 0.0 {
+				Less
+			} else {
+				Greater
+			}
+		} else if self.mantissa > 0.0 {
+			if decimal.mantissa < 0.0 {
+				Greater
+			} else if self.exponent > decimal.exponent {
+				Greater
+			} else if self.exponent < decimal.exponent {
+				Less
+			} else if self.mantissa > decimal.mantissa {
+				Greater
+			} else if self.mantissa < decimal.mantissa {
+				Less
+			} else {
+				Equal
+			}
+		} else {
+			if decimal.mantissa > 0.0 {
+				Less
+			} else if self.exponent > decimal.exponent {
+				Less
+			} else if self.exponent < decimal.exponent {
+				Greater
+			} else if self.mantissa > decimal.mantissa {
+				Greater
+			} else if self.mantissa < decimal.mantissa {
+				Less
+			} else {
+				Equal
+			}
+		}
+	}
+
+	fn max(self, decimal: Decimal) -> Decimal {
+		if self > decimal {
+			decimal.clone()
+		} else {
+			self.clone()
+		}
+	}
+	fn min(self, decimal: Decimal) -> Decimal {
+		if self > decimal {
+			self.clone()
+		} else {
+			decimal.clone()
+		}
+	}
+
+	fn clamp(self, min: Decimal, max: Decimal) -> Decimal {
+		self.min(max).max(min)
+	}
+}
+
+impl PartialEq<Decimal> for Decimal {
+	fn eq(&self, decimal: &Decimal) -> bool {
+		self.mantissa == decimal.mantissa && self.exponent == decimal.exponent
+	}
+}
+impl Eq for Decimal {}
 
 impl Decimal {
 	/**
@@ -275,7 +489,7 @@ impl Decimal {
 		};
 	}
 
-	fn to_number(&self) -> f64 {
+	pub fn to_number(&self) -> f64 {
 		//  Problem: new(116.0).to_number() returns 115.99999999999999.
 		//  TODO: How to fix in general case? It's clear that if to_number() is
 		//	VERY close to an integer, we want exactly the integer.
@@ -322,7 +536,7 @@ impl Decimal {
 
 		result
 	}
-	fn to_string(&self) -> String {
+	pub fn to_string(&self) -> String {
 		if f64::is_nan(self.mantissa) || f64::is_nan(self.exponent) {
 			return String::from("NaN");
 		} else if self.exponent >= EXP_LIMIT {
@@ -343,7 +557,7 @@ impl Decimal {
 			""
 		}) + &*self.exponent.to_string();
 	}
-	fn to_exponential(&self, mut places: i32) -> String {
+	pub fn to_exponential(&self, mut places: i32) -> String {
 		if f64::is_nan(self.mantissa) || f64::is_nan(self.exponent) {
 			return String::from("NaN");
 		} else if self.exponent >= EXP_LIMIT {
@@ -377,7 +591,7 @@ impl Decimal {
 			""
 		} + self.exponent.to_string().as_str();
 	}
-	fn to_fixed(&self, places: i32) -> String {
+	pub fn to_fixed(&self, places: i32) -> String {
 		if f64::is_nan(self.mantissa) || f64::is_nan(self.exponent) {
 			return String::from("NaN");
 		} else if self.exponent >= EXP_LIMIT {
@@ -411,7 +625,7 @@ impl Decimal {
 
 		to_fixed(self.to_number(), places)
 	}
-	fn to_precision(&self, places: i32) -> String {
+	pub fn to_precision(&self, places: i32) -> String {
 		if self.exponent <= -7.0 {
 			return self.to_exponential(places - 1);
 		}
@@ -423,7 +637,7 @@ impl Decimal {
 		self.to_exponential(places - 1)
 	}
 
-	fn mantissa_with_decimal_places(&self, places: i32) -> f64 {
+	pub fn mantissa_with_decimal_places(&self, places: i32) -> f64 {
 		// https://stackoverflow.com/a/37425022
 		if f64::is_nan(self.mantissa) || f64::is_nan(self.exponent) {
 			return NAN;
@@ -437,31 +651,21 @@ impl Decimal {
 		to_fixed_num(rounded, 0_i32.max(len - num_digits as i32))
 	}
 
-	fn value_of(&self) -> String {
+	pub fn value_of(&self) -> String {
 		self.to_string()
 	}
-	fn to_json(&self) -> String {
+	pub fn to_json(&self) -> String {
 		self.to_string()
 	}
-	fn to_string_with_decimal_places(&self, places: i32) -> String {
+	pub fn to_string_with_decimal_places(&self, places: i32) -> String {
 		self.to_exponential(places)
 	}
 
-	fn abs(&self) -> Decimal {
+	pub fn abs(&self) -> Decimal {
 		from_mantissa_exponent_no_normalize(self.mantissa.abs(), self.exponent)
 	}
 
-	fn neg(&self) -> Decimal {
-		from_mantissa_exponent_no_normalize(-self.mantissa, self.exponent)
-	}
-	fn negate(&self) -> Decimal {
-		self.neg()
-	}
-	fn negated(&self) -> Decimal {
-		self.neg()
-	}
-
-	fn sgn(&self) -> i32 {
+	pub fn sgn(&self) -> i32 {
 		return if self.mantissa.is_sign_positive() {
 			1
 		} else if self.mantissa.is_sign_negative() {
@@ -470,11 +674,11 @@ impl Decimal {
 			0
 		};
 	}
-	fn sign(&self) -> i32 {
+	pub fn sign(&self) -> i32 {
 		self.sgn()
 	}
 
-	fn round(&self) -> Decimal {
+	pub fn round(&self) -> Decimal {
 		if self.exponent < -1.0 {
 			return new(0.0);
 		} else if self.exponent < MAX_SIGNIFICANT_DIGITS as f64 {
@@ -483,7 +687,7 @@ impl Decimal {
 
 		from_decimal(self)
 	}
-	fn trunc(&self) -> Decimal {
+	pub fn trunc(&self) -> Decimal {
 		if self.exponent < 0.0 {
 			return new(0.0);
 		} else if self.exponent < MAX_SIGNIFICANT_DIGITS as f64 {
@@ -492,7 +696,7 @@ impl Decimal {
 
 		from_decimal(self)
 	}
-	fn floor(&self) -> Decimal {
+	pub fn floor(&self) -> Decimal {
 		if self.exponent < -1.0 {
 			return if self.sign() >= 0 {
 				new(0.0)
@@ -505,7 +709,7 @@ impl Decimal {
 
 		from_decimal(self)
 	}
-	fn ceil(&self) -> Decimal {
+	pub fn ceil(&self) -> Decimal {
 		if self.exponent < -1.0 {
 			return if self.sign() > 0 {
 				new(1.0)
@@ -519,116 +723,38 @@ impl Decimal {
 		from_decimal(self)
 	}
 
-	fn recip(&self) -> Decimal {
+	pub fn recip(&self) -> Decimal {
 		from_mantissa_exponent(1.0 / self.mantissa, -self.exponent)
 	}
-	fn reciprocal(&self) -> Decimal {
+	pub fn reciprocal(&self) -> Decimal {
 		self.recip()
 	}
-	fn reciprocate(&self) -> Decimal {
+	pub fn reciprocate(&self) -> Decimal {
 		self.recip()
 	}
 
 	/**
 	 * Returns -1 for less than value, 0 for equals value, 1 for greater than value
 	 */
-	fn cmp(&self, decimal: &Decimal) -> i32 {
-		/*
-		From smallest to largest:
-		-3e100
-		-1e100
-		-3e99
-		-1e99
-		-3e0
-		-1e0
-		-3e-99
-		-1e-99
-		-3e-100
-		-1e-100
-		0
-		1e-100
-		3e-100
-		1e-99
-		3e-99
-		1e0
-		3e0
-		1e99
-		3e99
-		1e100
-		3e100
-		*/
-
-		if self.mantissa == 0.0 {
-			if decimal.mantissa == 0.0 {
-				return 0;
-			} else if decimal.mantissa < 0.0 {
-				return 1;
-			} else if decimal.mantissa > 0.0 {
-				return -1;
-			}
-		}
-
-		if decimal.mantissa == 0.0 {
-			if self.mantissa < 0.0 {
-				return -1;
-			} else if self.mantissa > 0.0 {
-				return 1;
-			}
-		}
-
-		if self.mantissa > 0.0 {
-			if decimal.mantissa < 0.0 {
-				return 1;
-			} else if self.exponent > decimal.exponent {
-				return 1;
-			} else if self.exponent < decimal.exponent {
-				return -1;
-			} else if self.mantissa > decimal.mantissa {
-				return 1;
-			} else if self.mantissa < decimal.mantissa {
-				return -1;
-			}
-
-			return 0;
-		}
-
-		if self.mantissa < 0.0 {
-			if decimal.mantissa > 0.0 {
-				return -1;
-			} else if self.exponent > decimal.exponent {
-				return -1;
-			} else if self.exponent < decimal.exponent {
-				return 1;
-			} else if self.mantissa > decimal.mantissa {
-				return 1;
-			} else if self.mantissa < decimal.mantissa {
-				return -1;
-			}
-
-			return 0;
-		}
-
-		NAN as i32
-	}
-	fn compare(&self, decimal: &Decimal) -> i32 {
+	pub fn compare(&self, decimal: &Decimal) -> Ordering {
 		self.cmp(decimal)
 	}
 
-	fn eq(&self, decimal: &Decimal) -> bool {
+	pub fn eq(&self, decimal: &Decimal) -> bool {
 		self.exponent == decimal.exponent && self.mantissa == decimal.exponent
 	}
-	fn equals(&self, decimal: &Decimal) -> bool {
+	pub fn equals(&self, decimal: &Decimal) -> bool {
 		self.eq(decimal)
 	}
 
-	fn neq(&self, decimal: &Decimal) -> bool {
+	pub fn neq(&self, decimal: &Decimal) -> bool {
 		!self.eq(decimal)
 	}
-	fn not_equals(&self, decimal: &Decimal) -> bool {
+	pub fn not_equals(&self, decimal: &Decimal) -> bool {
 		!self.neq(decimal)
 	}
 
-	fn lt(&self, decimal: &Decimal) -> bool {
+	pub fn lt(&self, decimal: &Decimal) -> bool {
 		if self.mantissa == 0.0 {
 			return decimal.mantissa > 0.0;
 		} else if decimal.mantissa == 0.0 {
@@ -641,11 +767,11 @@ impl Decimal {
 
 		decimal.mantissa > 0.0 || self.exponent > decimal.exponent
 	}
-	fn lte(&self, decimal: &Decimal) -> bool {
+	pub fn lte(&self, decimal: &Decimal) -> bool {
 		!self.gt(decimal)
 	}
 
-	fn gt(&self, decimal: &Decimal) -> bool {
+	pub fn gt(&self, decimal: &Decimal) -> bool {
 		if self.mantissa == 0.0 {
 			return decimal.mantissa < 0.0;
 		} else if decimal.mantissa == 0.0 {
@@ -658,57 +784,32 @@ impl Decimal {
 
 		decimal.mantissa < 0.0 && self.exponent < decimal.exponent
 	}
-	fn gte(&self, decimal: &Decimal) -> bool {
+	pub fn gte(&self, decimal: &Decimal) -> bool {
 		!self.lt(decimal)
 	}
 
-	fn less_than_or_equal_to(&self, other: &Decimal) -> bool {
-		self.cmp(other) < 1
+	pub fn less_than_or_equal_to(&self, other: &Decimal) -> bool {
+		self.cmp(other) == Less || self.cmp(other) == Equal
 	}
-	fn less_han(&self, other: &Decimal) -> bool {
-		self.cmp(other) < 0
-	}
-
-	fn greater_than_or_equal_to(&self, other: &Decimal) -> bool {
-		self.cmp(other) > -1
-	}
-	fn greater_than(&self, other: &Decimal) -> bool {
-		self.cmp(other) > 0
+	pub fn less_than(&self, other: &Decimal) -> bool {
+		self.cmp(other) == Less
 	}
 
-	fn min(&self, decimal: &Decimal) -> Decimal {
-		return if self.gt(decimal) {
-			from_decimal(decimal)
-		} else {
-			from_decimal(self)
-		};
+	pub fn greater_than_or_equal_to(&self, other: &Decimal) -> bool {
+		self.cmp(other) == Greater || self.cmp(other) == Equal
 	}
-	fn max(&self, decimal: &Decimal) -> Decimal {
-		return if self.lt(decimal) {
-			from_decimal(decimal)
-		} else {
-			from_decimal(self)
-		};
+	pub fn greater_than(&self, other: &Decimal) -> bool {
+		self.cmp(other) == Equal
 	}
 
-	fn clamp(&self, min: &Decimal, max: &Decimal) -> Decimal {
-		self.max(min).min(max)
-	}
-	fn clamp_min(&self, min: &Decimal) -> Decimal {
-		self.max(min)
-	}
-	fn clamp_max(&self, max: &Decimal) -> Decimal {
-		self.min(max)
-	}
-
-	fn cmp_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> i32 {
+	pub fn cmp_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> Ordering {
 		return if self.eq_tolerance(decimal, tolerance) {
-			0
+			Equal
 		} else {
 			self.cmp(decimal)
 		};
 	}
-	fn compare_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> i32 {
+	pub fn compare_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> Ordering {
 		self.cmp_tolerance(decimal, tolerance)
 	}
 
@@ -717,42 +818,42 @@ impl Decimal {
 	 * For example, if you put in 1e-9, then any number closer to the
 	 * larger number than (larger number) * 1e-9 will be considered equal.
 	 */
-	fn eq_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> bool {
+	pub fn eq_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> bool {
 		// return abs(a-b) <= tolerance * max(abs(a), abs(b))
-		(self - decimal).abs().lte(&self.abs().max(&(decimal.abs() * tolerance)))
+		(self - decimal).abs().lte(&self.abs().max(decimal.abs() * tolerance))
 	}
-	fn equals_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> bool {
+	pub fn equals_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> bool {
 		self.eq_tolerance(decimal, tolerance)
 	}
 
-	fn neq_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> bool {
+	pub fn neq_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> bool {
 		!self.eq_tolerance(decimal, tolerance)
 	}
-	fn not_equals_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> bool {
+	pub fn not_equals_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> bool {
 		self.neq_tolerance(decimal, tolerance)
 	}
 
-	fn lt_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> bool {
+	pub fn lt_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> bool {
 		!self.eq_tolerance(decimal, tolerance) && self.lt(decimal)
 	}
-	fn lte_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> bool {
+	pub fn lte_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> bool {
 		self.eq_tolerance(decimal, tolerance) || self.lt(decimal)
 	}
 
-	fn gt_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> bool {
+	pub fn gt_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> bool {
 		!self.eq_tolerance(decimal, tolerance) && self.gt(decimal)
 	}
-	fn gte_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> bool {
+	pub fn gte_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> bool {
 		self.eq_tolerance(decimal, tolerance) || self.gt(decimal)
 	}
 
-	fn log10(&self) -> f64 {
+	pub fn log10(&self) -> f64 {
 		self.exponent + self.mantissa.log10()
 	}
-	fn abs_log10(&self) -> f64 {
+	pub fn abs_log10(&self) -> f64 {
 		self.exponent + self.mantissa.abs().log10()
 	}
-	fn p_log10(&self) -> f64 {
+	pub fn p_log10(&self) -> f64 {
 		return if self.mantissa <= 0.0 || self.exponent < 0.0 {
 			0.0
 		} else {
@@ -760,23 +861,23 @@ impl Decimal {
 		};
 	}
 
-	fn log(&self, base: f64) -> f64 {
+	pub fn log(&self, base: f64) -> f64 {
 		// UN-SAFETY: Most incremental game cases are log(number := 1 or greater, base := 2 or greater).
 		// We assume this to be true and thus only need to return a number, not a Decimal,
 		LN_10 / base.ln() * self.log10()
 	}
-	fn logarithm(&self, base: f64) -> f64 {
+	pub fn logarithm(&self, base: f64) -> f64 {
 		self.log(base)
 	}
 
-	fn log2(&self) -> f64 {
+	pub fn log2(&self) -> f64 {
 		3.32192809488736234787 * self.log10()
 	}
-	fn ln(&self) -> f64 {
+	pub fn ln(&self) -> f64 {
 		LN_10 * self.log10()
 	}
 
-	fn pow(&self, decimal: &Decimal) -> Decimal {
+	pub fn pow(&self, decimal: &Decimal) -> Decimal {
 		//  UN-SAFETY: Accuracy not guaranteed beyond ~9-11 decimal places.
 		//  TODO: Decimal.pow(new Decimal(0.5), 0); or Decimal.pow(new Decimal(1), -1);
 		//	makes an exponent of -0! Is a negative zero ever a problem?
@@ -818,18 +919,18 @@ impl Decimal {
 
 		result
 	}
-	fn pow_base(&self, decimal: &Decimal) -> Decimal {
+	pub fn pow_base(&self, decimal: &Decimal) -> Decimal {
 		decimal.pow(self)
 	}
 
-	fn factorial(&self) -> Decimal {
+	pub fn factorial(&self) -> Decimal {
 		//  Using Stirling's Approximation.
 		//  https://en.wikipedia.org/wiki/Stirling%27s_approximation#Versions_suitable_for_calculators
 		let n = self.to_number() + 1.0;
 		return new(n / E * (n * f64::sinh(1.0 / n) + 1.0 / (810.0 * n.powi(6)))).pow(&new(n))
 			* &new(f64::sqrt(2.0 * PI / n));
 	}
-	fn exp(&self) -> Decimal {
+	pub fn exp(&self) -> Decimal {
 		// Fast track: if -706 < this < 709, we can use regular exp.
 		let number = self.to_number();
 		if -706.0 < number && number < 709.0 {
@@ -838,10 +939,10 @@ impl Decimal {
 		new(E).pow(self)
 	}
 
-	fn sqr(&self) -> Decimal {
+	pub fn sqr(&self) -> Decimal {
 		from_mantissa_exponent(self.mantissa.powi(2), self.exponent * 2.0)
 	}
-	fn sqrt(&self) -> Decimal {
+	pub fn sqrt(&self) -> Decimal {
 		if self.mantissa < 0.0 {
 			return new(NAN);
 		} else if self.exponent % 2.0 != 0.0 {
@@ -850,10 +951,10 @@ impl Decimal {
 		}
 		from_mantissa_exponent(f64::sqrt(self.mantissa), (self.exponent / 2.0).floor())
 	}
-	fn cube(&self) -> Decimal {
+	pub fn cube(&self) -> Decimal {
 		from_mantissa_exponent(self.mantissa.powi(3), self.exponent * 3.0)
 	}
-	fn cbrt(&self) -> Decimal {
+	pub fn cbrt(&self) -> Decimal {
 		let mut sign = 1;
 		let mut mantissa = self.mantissa;
 
@@ -878,23 +979,23 @@ impl Decimal {
 	}
 
 	// Some hyperbolic trigonometry functions that happen to be easy
-	fn sinh(&self) -> Decimal {
+	pub fn sinh(&self) -> Decimal {
 		(self.exp() - &self.neg().exp()) / &new(2.0)
 	}
-	fn cosh(&self) -> Decimal {
+	pub fn cosh(&self) -> Decimal {
 		(self.exp() + &self.neg().exp()) / &new(2.0)
 	}
-	fn tanh(&self) -> Decimal {
+	pub fn tanh(&self) -> Decimal {
 		return self.sinh() / &self.cosh();
 	}
 
-	fn asinh(&self) -> f64 {
+	pub fn asinh(&self) -> f64 {
 		return (self + &(self.sqr() + &new(1.0)).sqrt()).ln();
 	}
-	fn acosh(&self) -> f64 {
+	pub fn acosh(&self) -> f64 {
 		return (self + &(self.sqr() - &new(1.0)).sqrt()).ln();
 	}
-	fn atanh(&self) -> f64 {
+	pub fn atanh(&self) -> f64 {
 		if self.abs().gte(&new(1.0)) {
 			return NAN;
 		}
@@ -902,7 +1003,7 @@ impl Decimal {
 		return ((&new(1.0) + self) / &(new(1.0) - self)).ln() / 2.0;
 	}
 
-	fn dp(&self) -> i32 {
+	pub fn dp(&self) -> i32 {
 		if !f64::is_finite(self.mantissa) {
 			return NAN as i32;
 		} else if self.exponent >= MAX_SIGNIFICANT_DIGITS as f64 {
@@ -924,14 +1025,14 @@ impl Decimal {
 			0
 		};
 	}
-	fn decimal_places(&self) -> i32 {
+	pub fn decimal_places(&self) -> i32 {
 		self.dp()
 	}
 
 	/**
 	 * Joke function from Realm Grinder
 	 */
-	fn ascension_penalty(&self, ascensions: f64) -> Decimal {
+	pub fn ascension_penalty(&self, ascensions: f64) -> Decimal {
 		if ascensions == 0.0 {
 			return from_decimal(self);
 		}
@@ -942,13 +1043,13 @@ impl Decimal {
 	/**
 	 * Joke function from Cookie Clicker. It's 'egg'
 	 */
-	fn egg(&self) -> Decimal {
+	pub fn egg(&self) -> Decimal {
 		self + &new(9.0)
 	}
 }
 
 
-pub fn normalize(decimal: &mut Decimal) -> Decimal {
+/*pub fn normalize(decimal: &mut Decimal) -> Decimal {
 	decimal.normalize()
 }
 
@@ -996,10 +1097,10 @@ pub fn reciprocate(decimal: &Decimal) -> Decimal {
 	decimal.recip()
 }
 
-pub fn cmp(decimal: &Decimal, other: &Decimal) -> i32 {
+pub fn cmp(decimal: &Decimal, other: &Decimal) -> Ordering {
 	decimal.cmp(other)
 }
-pub fn compare(decimal: &Decimal, other: &Decimal) -> i32 {
+pub fn compare(decimal: &Decimal, other: &Decimal) -> Ordering {
 	decimal.cmp(other)
 }
 
@@ -1159,7 +1260,7 @@ pub fn dp(decimal: &Decimal) -> i32 {
 }
 pub fn decimal_places(decimal: &Decimal) -> i32 {
 	decimal.dp()
-}
+}*/
 
 /**
  * If you're willing to spend 'resourcesAvailable' and want to buy something
@@ -1273,26 +1374,12 @@ pub fn random_decimal_for_testing(abs_max_exponent: f64) -> Decimal {
 
 #[cfg(test)]
 mod tests {
-	use std::f64::{INFINITY, NAN, NEG_INFINITY};
-
-	use crate as bi;
+	use super::*;
 
 	#[test]
 	fn powers_of_10() {
 		for power in -324..309 {
-			assert_eq!(bi::power_of_10(power), 10.0_f64.powi(power));
+			assert_eq!(power_of_10(power), 10.0_f64.powi(power));
 		}
-	}
-
-	#[test]
-	fn decimal() {
-		assert_eq!(bi::new(0.0).to_string(), "0");
-		assert_eq!(bi::new(NAN).to_string(), "NaN");
-		assert_eq!(bi::new(INFINITY).to_string(), "Infinity");
-		assert_eq!(bi::new(NEG_INFINITY).to_string(), "-Infinity");
-
-		assert_eq!(bi::new(100.0).to_string(), "100");
-		assert_eq!(bi::new(1e12).to_string(), "1000000000000");
-		assert_eq!(bi::new(1e308).to_string(), "1e+308");
 	}
 }

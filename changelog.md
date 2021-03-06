@@ -3,7 +3,7 @@ This changelog format is based on the spec described on [Keep a Changelog](https
 This project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.html).
 
 <!-- This is an example of a update block
-  ## [v1.0.0] - 1/1/2021
+  ## [v1.0.0] - 01/01/2021
   ### Added
   ### Changed
   ### Deprecated
@@ -11,6 +11,15 @@ This project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0
   ### Fixed
   ### Security
 -->
+
+## [v0.2.1] - 27/02/2021
+### Added
+- Comparison Operators
+- Negative Operator
+- Integration Tests
+
+### Changed
+- Made Functions Public
 
 ## [v0.2.0] - 27/02/2021
 ### Added
