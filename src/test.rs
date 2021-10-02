@@ -43,6 +43,8 @@ fn ops() {
         b / c,
         super::from_mantissa_exponent_no_normalize(3.9999999999999996, 0.0)
     );
+
+    assert_eq!(Decimal::new(1.0) + Decimal::new(0.0), Decimal::new(1.0));
 }
 
 #[test]

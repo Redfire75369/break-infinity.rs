@@ -152,8 +152,12 @@ impl Add<Decimal> for Decimal {
         // Figure out which is bigger, shrink the mantissa of the smaller
         // by the difference in exponents, add mantissas, normalize and return
         // TODO: Optimizations and simplification may be possible, see https://github.com/Patashu/break_infinity.js/issues/8
-        if decimal.mantissa == 0.0 || self.mantissa == 0.0 {
+        if self.mantissa == 0.0 {
             return decimal;
+        }
+        
+        if decimal.mantissa == 0.0 {
+            return self;
         }
 
         let bigger_decimal;
