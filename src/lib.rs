@@ -923,8 +923,9 @@ impl Decimal {
 	}
 
 	pub fn log2(&self) -> f64 {
-		LOG2_10
+		LOG2_10 * self.log10()
 	}
+	
 	pub fn ln(&self) -> f64 {
 		LN_10 * self.log10()
 	}
