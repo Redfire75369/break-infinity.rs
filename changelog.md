@@ -43,7 +43,8 @@ This project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0
 
 ### Removed
 
-- The dedicated `to_string()` function in favor of the one supplied by `Display`
+- The dedicated `to_string()` function in favour of the one supplied by `Display`
+- `Ord` implementation in favour of `PartialOrd`
 - `once_cell` is no longer needed and has been replaced by `lazy_static`
 
 ## [v0.2.1] - 06/03/2021

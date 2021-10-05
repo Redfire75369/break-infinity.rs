@@ -1,40 +1,32 @@
+use std::cmp::Ordering::{self, *};
+use std::f64::consts::{E, LN_10, LOG2_10, PI};
+use std::fmt::{Display, Formatter, Result};
+use std::ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign};
+
 mod macros;
 
 #[cfg(test)]
 mod test;
 
-use std::{
-	cmp::Ordering::*,
-	convert::TryInto,
-	f64::{
-		consts::{E, LN_10, LOG2_10, PI},
-		INFINITY, NAN, NEG_INFINITY,
-	},
-	fmt::{Display, Formatter, Result},
-	ops::{Add, AddAssign, Div, DivAssign, Mul, MulAssign, Neg, Sub, SubAssign},
-};
-
-use std::cmp::Ordering;
-
 pub const MAX_SAFE_INTEGER: f64 = 9007199254740991.0;
 
-/// Highest value you can safely put here is MAX_SAFE_INTEGER
-pub const MAX_SIGNIFICANT_DIGITS: i32 = 17;
+pub const MAX_SIGNIFICANT_DIGITS: u32 = 17;
 
 pub const EXP_LIMIT: f64 = 1.79e308;
 
-/// Tolerance which is used for Number conversion to compensate floating-point error.
+/// Tolerance which is used for f64 conversion to compensate for floating-point error.
 pub const ROUND_TOLERANCE: f64 = f64::EPSILON;
 
-/// The smallest exponent that can appear in a Number, though not all mantissas are valid here.
+/// The smallest exponent that can appear in an f64, though not all mantissas are valid here.
 pub const NUMBER_EXP_MIN: i32 = -324;
-/// The largest exponent that can appear in a Number, though not all mantissas are valid here.
+
+/// The largest exponent that can appear in an f64, though not all mantissas are valid here.
 pub const NUMBER_EXP_MAX: i32 = 308;
 
 /// The length of the cache used for powers of 10.
 pub const LENGTH: usize = (NUMBER_EXP_MAX - NUMBER_EXP_MIN + 1) as usize;
 
-// It might be worth turning this into a macro and embedding the cache right into the library, 
+// It might be worth turning this into a macro and embedding the cache right into the library,
 // making it a lot faster while increasing the library size.
 lazy_static::lazy_static! {
 	pub static ref CACHED_POWERS : [f64; LENGTH] = {
@@ -47,12 +39,12 @@ lazy_static::lazy_static! {
 }
 
 /// Pads the given string with the fill string to the given max length.
-pub fn pad_end(string: String, max_length: i32, fill_string: String) -> String {
+pub fn pad_end(string: String, max_length: u32, fill_string: String) -> String {
 	if f32::is_nan(max_length as f32) || f32::is_infinite(max_length as f32) {
 		return string;
 	}
 
-	let length = string.chars().count() as i32;
+	let length = string.chars().count() as u32;
 	if length >= max_length {
 		return string;
 	}
@@ -63,11 +55,11 @@ pub fn pad_end(string: String, max_length: i32, fill_string: String) -> String {
 	}
 
 	let fill_len = max_length - length;
-	while (filled.chars().count() as i32) < fill_len {
+	while filled.chars().count() < fill_len as usize {
 		filled = format!("{}{}", filled, filled);
 	}
 
-	let truncated = if (filled.chars().count() as i32) > fill_len {
+	let truncated = if filled.chars().count() > fill_len as usize {
 		String::from(&filled.as_str()[0..(fill_len as usize)])
 	} else {
 		filled
@@ -77,12 +69,12 @@ pub fn pad_end(string: String, max_length: i32, fill_string: String) -> String {
 }
 
 /// Formats the given number to the given number of significant digits.
-pub fn to_fixed(num: f64, places: i32) -> String {
-	format!("{:.*}", places.try_into().unwrap(), num)
+pub fn to_fixed(num: f64, places: u32) -> String {
+	format!("{:.*}", places as usize, num)
 }
 
 /// Formats the given number to the given number of significant digits and parses it back to a number.
-pub fn to_fixed_num(num: f64, places: i32) -> f64 {
+pub fn to_fixed_num(num: f64, places: u32) -> f64 {
 	to_fixed(num, places).parse::<f64>().unwrap()
 }
 
@@ -100,8 +92,8 @@ pub fn from_mantissa_exponent_no_normalize(mantissa: f64, exponent: f64) -> Deci
 pub fn from_mantissa_exponent(mantissa: f64, exponent: f64) -> Decimal {
 	if !f64::is_finite(mantissa) || !f64::is_finite(exponent) {
 		return Decimal {
-			mantissa: NAN,
-			exponent: NAN,
+			mantissa: f64::NAN,
+			exponent: f64::NAN,
 		};
 	}
 	let decimal = from_mantissa_exponent_no_normalize(mantissa, exponent);
@@ -128,15 +120,15 @@ impl Display for Decimal {
 		} else if self.exponent <= -EXP_LIMIT || self.mantissa == 0.0 {
 			return write!(f, "0");
 		} else if self.exponent < 21.0 && self.exponent > -7.0 {
-			if let Some(places) = f.precision() {
-				return write!(f, "{:.*}", places, self.to_number().to_string());
-			}
-
-			return write!(f, "{}", self.to_number().to_string());
+			return if let Some(places) = f.precision() {
+				write!(f, "{:.*}", places, self.to_number().to_string())
+			} else {
+				write!(f, "{}", self.to_number().to_string())
+			};
 		}
 
 		let form = if let Some(places) = f.precision() {
-			self.to_exponential(places.try_into().unwrap())
+			self.to_exponential(places as u32)
 		} else {
 			self.to_exponential(16)
 		};
@@ -155,7 +147,7 @@ impl Add<Decimal> for Decimal {
 		if self.mantissa == 0.0 {
 			return decimal;
 		}
-		
+
 		if decimal.mantissa == 0.0 {
 			return self;
 		}
@@ -177,9 +169,7 @@ impl Add<Decimal> for Decimal {
 
 		from_mantissa_exponent(
 			(1e14 * bigger_decimal.mantissa)
-				+ 1e14
-					* &smaller_decimal.mantissa
-					* power_of_10((smaller_decimal.exponent - bigger_decimal.exponent) as i32),
+				+ 1e14 * &smaller_decimal.mantissa * power_of_10((smaller_decimal.exponent - bigger_decimal.exponent) as i32),
 			bigger_decimal.exponent - 14.0,
 		)
 	}
@@ -228,6 +218,7 @@ impl Sub<&Decimal> for &Decimal {
 		*self - *decimal
 	}
 }
+
 impl Sub<&Decimal> for Decimal {
 	type Output = Decimal;
 
@@ -235,6 +226,7 @@ impl Sub<&Decimal> for Decimal {
 		self - *decimal
 	}
 }
+
 impl Sub<Decimal> for &Decimal {
 	type Output = Decimal;
 
@@ -242,6 +234,7 @@ impl Sub<Decimal> for &Decimal {
 		*self - decimal
 	}
 }
+
 impl Sub<Decimal> for Decimal {
 	type Output = Decimal;
 
@@ -267,12 +260,10 @@ impl Mul<Decimal> for Decimal {
 	type Output = Decimal;
 
 	fn mul(self, decimal: Decimal) -> Decimal {
-		from_mantissa_exponent(
-			self.mantissa * decimal.mantissa,
-			self.exponent + decimal.exponent,
-		)
+		from_mantissa_exponent(self.mantissa * decimal.mantissa, self.exponent + decimal.exponent)
 	}
 }
+
 impl Mul<&Decimal> for Decimal {
 	type Output = Decimal;
 
@@ -280,6 +271,7 @@ impl Mul<&Decimal> for Decimal {
 		self * *decimal
 	}
 }
+
 impl Mul<Decimal> for &Decimal {
 	type Output = Decimal;
 
@@ -287,6 +279,7 @@ impl Mul<Decimal> for &Decimal {
 		*self * decimal
 	}
 }
+
 impl Mul<&Decimal> for &Decimal {
 	type Output = Decimal;
 
@@ -315,6 +308,7 @@ impl Div<Decimal> for Decimal {
 		self * decimal.recip()
 	}
 }
+
 impl Div<&Decimal> for Decimal {
 	type Output = Decimal;
 
@@ -322,6 +316,7 @@ impl Div<&Decimal> for Decimal {
 		self / *decimal
 	}
 }
+
 impl Div<Decimal> for &Decimal {
 	type Output = Decimal;
 
@@ -329,6 +324,7 @@ impl Div<Decimal> for &Decimal {
 		*self / decimal
 	}
 }
+
 impl Div<&Decimal> for &Decimal {
 	type Output = Decimal;
 
@@ -356,6 +352,7 @@ impl Neg for &Decimal {
 		from_mantissa_exponent_no_normalize(-self.mantissa, self.exponent)
 	}
 }
+
 impl Neg for Decimal {
 	type Output = Decimal;
 
@@ -369,6 +366,7 @@ impl PartialOrd for Decimal {
 	fn partial_cmp(&self, decimal: &Self) -> Option<Ordering> {
 		/*
 		From smallest to largest:
+		-Infinity
 		-3e100
 		-1e100
 		-3e99
@@ -390,84 +388,68 @@ impl PartialOrd for Decimal {
 		3e99
 		1e100
 		3e100
+		Infinity
 		*/
 
-		Some(self.cmp(decimal))
-	}
-
-	fn lt(&self, other: &Decimal) -> bool {
-		self.cmp(other) == Less
-	}
-	fn le(&self, other: &Decimal) -> bool {
-		self.cmp(other) == Less || self.cmp(other) == Equal
-	}
-
-	fn gt(&self, other: &Decimal) -> bool {
-		self.cmp(other) == Greater
-	}
-	fn ge(&self, other: &Decimal) -> bool {
-		self.cmp(other) == Greater || self.cmp(other) == Equal
-	}
-}
-impl Ord for Decimal {
-	// This implementation is flawed.
-	// How do would you compare NaN and Infinity?
-	// In cases like these, you should probably use the `partial_cmp` method and return `None`.
-	fn cmp(&self, decimal: &Decimal) -> Ordering {
-		if self.mantissa == 0.0 {
+		if f64::is_nan(self.mantissa) || f64::is_nan(self.exponent) || f64::is_nan(decimal.mantissa) || f64::is_nan(decimal.exponent) {
+			None
+		} else if (f64::is_infinite(self.mantissa) && self.mantissa.is_sign_negative())
+			|| (f64::is_infinite(decimal.mantissa) && decimal.mantissa.is_sign_positive())
+		{
+			Some(Less)
+		} else if (f64::is_infinite(self.mantissa) && self.mantissa.is_sign_negative())
+			|| (f64::is_infinite(decimal.mantissa) && decimal.mantissa.is_sign_positive())
+		{
+			Some(Greater)
+		} else if self.mantissa == 0.0 {
 			if decimal.mantissa == 0.0 {
-				Equal
+				Some(Equal)
 			} else if decimal.mantissa < 0.0 {
-				Greater
+				Some(Greater)
 			} else {
-				Less
+				Some(Less)
 			}
 		} else if decimal.mantissa == 0.0 {
 			if self.mantissa < 0.0 {
-				Less
+				Some(Less)
 			} else {
-				Greater
+				Some(Greater)
 			}
 		} else if self.mantissa > 0.0 {
 			if self.exponent > decimal.exponent || decimal.mantissa < 0.0 {
-				Greater
+				Some(Greater)
 			} else if self.exponent < decimal.exponent {
-				Less
+				Some(Less)
 			} else if self.mantissa > decimal.mantissa {
-				Greater
+				Some(Greater)
 			} else if self.mantissa < decimal.mantissa {
-				Less
+				Some(Less)
 			} else {
-				Equal
+				Some(Equal)
 			}
 		} else if self.exponent > decimal.exponent || decimal.mantissa > 0.0 {
-			Less
+			Some(Less)
 		} else if self.mantissa > decimal.mantissa || self.exponent < decimal.exponent {
-			Greater
+			Some(Greater)
 		} else if self.mantissa < decimal.mantissa {
-			Less
+			Some(Less)
 		} else {
-			Equal
+			Some(Equal)
 		}
 	}
 
-	fn max(self, decimal: Decimal) -> Decimal {
-		if self > decimal {
-			decimal
-		} else {
-			self
-		}
+	fn lt(&self, other: &Decimal) -> bool {
+		self.partial_cmp(other).map(Ordering::is_lt).unwrap_or(false)
 	}
-	fn min(self, decimal: Decimal) -> Decimal {
-		if self > decimal {
-			self
-		} else {
-			decimal
-		}
+	fn le(&self, other: &Decimal) -> bool {
+		self.partial_cmp(other).map(Ordering::is_le).unwrap_or(false)
 	}
 
-	fn clamp(self, min: Decimal, max: Decimal) -> Decimal {
-		self.min(max).max(min)
+	fn gt(&self, other: &Decimal) -> bool {
+		self.partial_cmp(other).map(Ordering::is_gt).unwrap_or(false)
+	}
+	fn ge(&self, other: &Decimal) -> bool {
+		self.partial_cmp(other).map(Ordering::is_ge).unwrap_or(false)
 	}
 }
 
@@ -486,18 +468,18 @@ impl From<&str> for Decimal {
 		return if string.find('e') != None {
 			let parts: Vec<&str> = string.split('e').collect();
 			let decimal = Decimal {
-				mantissa: String::from(parts[0]).parse::<f64>().unwrap(),
-				exponent: String::from(parts[1]).parse::<f64>().unwrap(),
+				mantissa: String::from(parts[0]).parse().unwrap(),
+				exponent: String::from(parts[1]).parse().unwrap(),
 			};
 
 			decimal.normalize()
 		} else if string == "NaN" {
 			Decimal {
-				mantissa: NAN,
-				exponent: NAN,
+				mantissa: f64::NAN,
+				exponent: f64::NAN,
 			}
 		} else {
-			Decimal::new(String::from(string).parse::<f64>().unwrap())
+			Decimal::new(String::from(string).parse().unwrap())
 		};
 	}
 }
@@ -524,8 +506,8 @@ impl Decimal {
 		// SAFETY: Handle Infinity and NaN in a somewhat meaningful way.
 		if f64::is_nan(value) {
 			return Decimal {
-				mantissa: NAN,
-				exponent: NAN,
+				mantissa: f64::NAN,
+				exponent: f64::NAN,
 			};
 		} else if value == 0.0 {
 			return Decimal {
@@ -546,23 +528,17 @@ impl Decimal {
 
 		let e = value.abs().log10().floor();
 		let m = if (e - NUMBER_EXP_MIN as f64).abs() < f64::EPSILON {
-			value * 10.0
-				/ ("1e".to_owned() + (NUMBER_EXP_MIN + 1).to_string().as_str())
-					.parse::<f64>()
-					.unwrap()
+			value * 10.0 / ("1e".to_owned() + (NUMBER_EXP_MIN + 1).to_string().as_str()).parse::<f64>().unwrap()
 		} else {
 			let power_10 = power_of_10(e as i32);
-			// This essentially rounds the mantissa for very bigh numbers.
+			// This essentially rounds the mantissa for very high numbers.
 			((value / power_10) * 1000000000000000.0).round() / 1000000000000000.0
 		};
-		let decimal = Decimal {
-			mantissa: m,
-			exponent: e,
-		};
+		let decimal = Decimal { mantissa: m, exponent: e };
 		decimal.normalize()
 	}
-	
-	/// Normalizes the mantissa when it is too unnomal.
+
+	/// Normalizes the mantissa when it is too denormalized.
 	fn normalize(&self) -> Decimal {
 		if self.mantissa >= 1.0 && self.mantissa < 10.0 {
 			return *self;
@@ -594,15 +570,11 @@ impl Decimal {
 		//	and not rounded < 1e-9' as a quick fix.
 		//  var result = self.mantissa * 10.0_f64.powf(self.exponent);
 		if !f64::is_finite(self.exponent) {
-			return NAN;
+			return f64::NAN;
 		}
 
 		if self.exponent > NUMBER_EXP_MAX as f64 {
-			return if self.mantissa > 0.0 {
-				INFINITY
-			} else {
-				NEG_INFINITY
-			};
+			return if self.mantissa > 0.0 { f64::INFINITY } else { f64::NEG_INFINITY };
 		}
 
 		if self.exponent < NUMBER_EXP_MIN as f64 {
@@ -629,7 +601,7 @@ impl Decimal {
 	}
 
 	/// Converts the Decimal into a string with the scientific notation.
-	pub fn to_exponential(&self, mut places: i32) -> String {
+	pub fn to_exponential(&self, mut places: u32) -> String {
 		if f64::is_nan(self.mantissa) || f64::is_nan(self.exponent) {
 			return String::from("NaN");
 		} else if self.exponent >= EXP_LIMIT {
@@ -651,17 +623,15 @@ impl Decimal {
 		}
 
 		let len = places + 1;
-		let num_digits = self.mantissa.abs().log10().max(1.0);
-		let rounded = (self.mantissa * 10.0_f64.powi(len - num_digits as i32)).round()
-			* 10.0_f64.powi(num_digits as i32 - len);
-		return to_fixed(rounded, 0_i32.max(len - num_digits as i32).to_owned())
-			+ "e"
-			+ if self.exponent >= 0.0 { "+" } else { "" }
+		let num_digits = self.mantissa.abs().log10().max(1.0) as u32;
+		let rounded = (self.mantissa * 10.0_f64.powi(len as i32 - num_digits as i32)).round() * 10.0_f64.powi(num_digits as i32 - len as i32);
+		return to_fixed(rounded, 0_u32.max(len - num_digits))
+			+ "e" + if self.exponent >= 0.0 { "+" } else { "" }
 			+ self.exponent.to_string().as_str();
 	}
 
 	/// Converts the Decimal into a string with the fixed notation.
-	pub fn to_fixed(&self, places: i32) -> String {
+	pub fn to_fixed(&self, places: u32) -> String {
 		if f64::is_nan(self.mantissa) || f64::is_nan(self.exponent) {
 			return String::from("NaN");
 		} else if self.exponent >= EXP_LIMIT {
@@ -676,13 +646,13 @@ impl Decimal {
 		if self.exponent <= -EXP_LIMIT || self.mantissa == 0.0 {
 			// Two Cases:
 			// 1) exponent is 17 or greater: just print out mantissa with the appropriate number of zeroes after it
-			// 2) exponent is 16 or less: use basic toFixed
+			// 2) exponent is 16 or less: use basic to_fixed
 			let str = if places > 0 { tmp.as_str() } else { "" };
 			return "0".to_owned() + str;
 		} else if self.exponent >= MAX_SIGNIFICANT_DIGITS as f64 {
 			let str = pad_end(
 				self.mantissa.to_string().replace(".", ""),
-				(self.exponent + 1.0) as i32,
+				(self.exponent + 1.0) as u32,
 				String::from("0"),
 			) + if places > 0 { tmp.as_str() } else { "" };
 			return str;
@@ -692,32 +662,31 @@ impl Decimal {
 	}
 
 	/// Converts the Decimal into a string with the scientific notation if the exponent is greater than the precision.
-	pub fn to_precision(&self, places: i32) -> String {
+	pub fn to_precision(&self, places: u32) -> String {
 		if self.exponent <= -7.0 {
 			return self.to_exponential(places - 1);
 		}
 
 		if (places as f64) > self.exponent {
-			return self.to_fixed((places as f64 - self.exponent - 1.0) as i32);
+			return self.to_fixed((places as f64 - self.exponent - 1.0) as u32);
 		}
 
 		self.to_exponential(places - 1)
 	}
 
 	/// Returns the mantissa with the specified precision.
-	pub fn mantissa_with_decimal_places(&self, places: i32) -> f64 {
+	pub fn mantissa_with_decimal_places(&self, places: u32) -> f64 {
 		// https://stackoverflow.com/a/37425022
 		if f64::is_nan(self.mantissa) || f64::is_nan(self.exponent) {
-			return NAN;
+			return f64::NAN;
 		} else if self.mantissa == 0.0 {
 			return 0.0;
 		}
 
 		let len = places + 1;
-		let num_digits = self.mantissa.abs().log10().ceil();
-		let rounded = (self.mantissa * 10.0_f64.powi(len - num_digits as i32)).round()
-			* 10.0_f64.powi(num_digits as i32 - len);
-		to_fixed_num(rounded, 0_i32.max(len - num_digits as i32))
+		let num_digits = self.mantissa.abs().log10().ceil() as u32;
+		let rounded = (self.mantissa * 10.0_f64.powi(len as i32 - num_digits as i32)).round() * 10.0_f64.powi(num_digits as i32 - len as i32);
+		to_fixed_num(rounded, 0.max(len - num_digits))
 	}
 
 	/// Returns the absolute value of the Decimal.
@@ -766,11 +735,7 @@ impl Decimal {
 	/// Floors the Decimal, if the exponent isn't greater than the maximum significant digits.
 	pub fn floor(&self) -> Decimal {
 		if self.exponent < -1.0 {
-			return if self.sign() >= 0 {
-				Decimal::new(0.0)
-			} else {
-				Decimal::new(-1.0)
-			};
+			return if self.sign() >= 0 { Decimal::new(0.0) } else { Decimal::new(-1.0) };
 		} else if self.exponent < MAX_SIGNIFICANT_DIGITS as f64 {
 			return Decimal::new(self.to_number().floor());
 		}
@@ -778,7 +743,7 @@ impl Decimal {
 		*self
 	}
 
-	/// Ceils the Decimal, if the exponent isn't greater than the maximum significant digits.
+	/// Rounds the Decimal to its ceiling, if the exponent isn't greater than the maximum significant digits.
 	pub fn ceil(&self) -> Decimal {
 		if self.exponent < -1.0 {
 			return if self.sign() > 0 { Decimal::new(1.0) } else { Decimal::new(0.0) };
@@ -804,8 +769,8 @@ impl Decimal {
 		self.recip()
 	}
 
-	pub fn compare(&self, decimal: &Decimal) -> Ordering {
-		self.cmp(decimal)
+	pub fn compare(&self, decimal: &Decimal) -> Option<Ordering> {
+		self.partial_cmp(decimal)
 	}
 
 	pub fn equals(&self, decimal: &Decimal) -> bool {
@@ -850,15 +815,35 @@ impl Decimal {
 		self.gt(other)
 	}
 
-	pub fn cmp_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> Ordering {
-		if self.eq_tolerance(decimal, tolerance) {
-			Equal
+	pub fn max(&self, other: &Decimal) -> Decimal {
+		if self > other {
+			self.clone()
 		} else {
-			self.cmp(decimal)
+			other.clone()
 		}
 	}
 
-	pub fn compare_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> Ordering {
+	pub fn min(&self, other: &Decimal) -> Decimal {
+		if self < other {
+			self.clone()
+		} else {
+			other.clone()
+		}
+	}
+
+	pub fn clamp(&self, min: &Decimal, max: &Decimal) -> Decimal {
+		self.min(max).max(min)
+	}
+
+	pub fn cmp_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> Option<Ordering> {
+		if self.eq_tolerance(decimal, tolerance) {
+			Some(Equal)
+		} else {
+			self.partial_cmp(decimal)
+		}
+	}
+
+	pub fn compare_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> Option<Ordering> {
 		self.cmp_tolerance(decimal, tolerance)
 	}
 
@@ -867,9 +852,7 @@ impl Decimal {
 	/// larger number than (larger number) * 1e-9 will be considered equal.
 	pub fn eq_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> bool {
 		// return abs(a-b) <= tolerance * max(abs(a), abs(b))
-		(self - decimal)
-			.abs()
-			.lte(&self.abs().max(decimal.abs() * tolerance))
+		(self - decimal).abs().lte(&self.abs().max(&(decimal.abs() * tolerance)))
 	}
 
 	pub fn equals_tolerance(&self, decimal: &Decimal, tolerance: &Decimal) -> bool {
@@ -925,7 +908,7 @@ impl Decimal {
 	pub fn log2(&self) -> f64 {
 		LOG2_10 * self.log10()
 	}
-	
+
 	pub fn ln(&self) -> f64 {
 		LN_10 * self.log10()
 	}
@@ -982,8 +965,7 @@ impl Decimal {
 		//  Using Stirling's Approximation.
 		//  https://en.wikipedia.org/wiki/Stirling%27s_approximation#Versions_suitable_for_calculators
 		let n = self.to_number() + 1.0;
-		Decimal::new(n / E * (n * f64::sinh(1.0 / n) + 1.0 / (810.0 * n.powi(6)))).pow(&Decimal::new(n))
-			* Decimal::new(f64::sqrt(2.0 * PI / n))
+		Decimal::new(n / E * (n * f64::sinh(1.0 / n) + 1.0 / (810.0 * n.powi(6)))).pow(&Decimal::new(n)) * Decimal::new(f64::sqrt(2.0 * PI / n))
 	}
 
 	pub fn exp(&self) -> Decimal {
@@ -1001,13 +983,10 @@ impl Decimal {
 
 	pub fn sqrt(&self) -> Decimal {
 		if self.mantissa < 0.0 {
-			return Decimal::new(NAN);
+			return Decimal::new(f64::NAN);
 		} else if self.exponent % 2.0 != 0.0 {
 			// Mod of a negative number is negative, so != means '1 or -1'
-			return from_mantissa_exponent(
-				f64::sqrt(self.mantissa) * 3.16227766016838,
-				(self.exponent / 2.0).floor(),
-			);
+			return from_mantissa_exponent(f64::sqrt(self.mantissa) * 3.16227766016838, (self.exponent / 2.0).floor());
 		}
 		from_mantissa_exponent(f64::sqrt(self.mantissa), (self.exponent / 2.0).floor())
 	}
@@ -1029,18 +1008,12 @@ impl Decimal {
 		let remainder = (self.exponent % 3.0) as i32;
 
 		if remainder == 1 || remainder == -1 {
-			return from_mantissa_exponent(
-				new_mantissa * 2.154_434_690_031_884,
-				(self.exponent / 3.0).floor(),
-			);
+			return from_mantissa_exponent(new_mantissa * 2.154_434_690_031_884, (self.exponent / 3.0).floor());
 		}
 
 		if remainder != 0 {
 			// remainder != 0 at this point means 'remainder == 2 || remainder == -2'
-			return from_mantissa_exponent(
-				new_mantissa * 4.641_588_833_612_779,
-				(self.exponent / 3.0).floor(),
-			);
+			return from_mantissa_exponent(new_mantissa * 4.641_588_833_612_779, (self.exponent / 3.0).floor());
 		}
 
 		from_mantissa_exponent(new_mantissa, (self.exponent / 3.0).floor())
@@ -1065,7 +1038,7 @@ impl Decimal {
 	}
 	pub fn atanh(&self) -> f64 {
 		if self.abs().gte(&Decimal::new(1.0)) {
-			return NAN;
+			return f64::NAN;
 		}
 
 		((Decimal::new(1.0) + self) / (Decimal::new(1.0) - self)).ln() / 2.0
@@ -1073,7 +1046,7 @@ impl Decimal {
 
 	pub fn dp(&self) -> i32 {
 		if !f64::is_finite(self.mantissa) {
-			return NAN as i32;
+			return f64::NAN as i32;
 		} else if self.exponent >= MAX_SIGNIFICANT_DIGITS as f64 {
 			return 0;
 		}
@@ -1117,41 +1090,21 @@ impl Decimal {
 /// multiply by priceRatio, already own currentOwned), how much of it can you buy?
 ///
 /// Adapted from Trimps source code.
-pub fn afford_geometric_series(
-	resources_available: &Decimal,
-	price_start: &Decimal,
-	price_ratio: &Decimal,
-	current_owned: &Decimal,
-) -> Decimal {
+pub fn afford_geometric_series(resources_available: &Decimal, price_start: &Decimal, price_ratio: &Decimal, current_owned: &Decimal) -> Decimal {
 	let actual_start = price_start * price_ratio.pow(current_owned);
-	Decimal::new(
-		(resources_available / actual_start * (price_ratio - Decimal::new(1.0)) + Decimal::new(1.0)).log10()
-			/ price_ratio.log10(),
-	)
-	.floor()
+	Decimal::new((resources_available / actual_start * (price_ratio - Decimal::new(1.0)) + Decimal::new(1.0)).log10() / price_ratio.log10()).floor()
 }
 
 /// How much resource would it cost to buy (numItems) items if you already have currentOwned,
 /// the initial price is priceStart and it multiplies by priceRatio each purchase?
-pub fn sum_geometric_series(
-	num_items: &Decimal,
-	price_start: &Decimal,
-	price_ratio: &Decimal,
-	current_owned: &Decimal,
-) -> Decimal {
-	price_start * price_ratio.pow(current_owned) * (Decimal::new(1.0) - price_ratio.pow(num_items))
-		/ (Decimal::new(1.0) - price_ratio)
+pub fn sum_geometric_series(num_items: &Decimal, price_start: &Decimal, price_ratio: &Decimal, current_owned: &Decimal) -> Decimal {
+	price_start * price_ratio.pow(current_owned) * (Decimal::new(1.0) - price_ratio.pow(num_items)) / (Decimal::new(1.0) - price_ratio)
 }
 
 /// If you're willing to spend 'resourcesAvailable' and want to buy something with additively
 /// increasing cost each purchase (start at priceStart, add by priceAdd, already own currentOwned),
 /// how much of it can you buy?
-pub fn afford_arithmetic_series(
-	resources_available: &Decimal,
-	price_start: &Decimal,
-	price_add: &Decimal,
-	current_owned: &Decimal,
-) -> Decimal {
+pub fn afford_arithmetic_series(resources_available: &Decimal, price_start: &Decimal, price_add: &Decimal, current_owned: &Decimal) -> Decimal {
 	//  n = (-(a-d/2) + sqrt((a-d/2)^2+2dS))/d
 	//  where a is actual_start, d is price_add and S is resources_available
 	//  then floor it and you're done!
@@ -1164,17 +1117,10 @@ pub fn afford_arithmetic_series(
 /// How much resource would it cost to buy (numItems) items if you already have currentOwned,
 /// the initial price is priceStart and it adds priceAdd each purchase?
 /// Adapted from http://www.mathwords.com/a/arithmetic_series.htm
-pub fn sum_arithmetic_series(
-	num_items: &Decimal,
-	price_start: &Decimal,
-	price_add: &Decimal,
-	current_owned: &Decimal,
-) -> Decimal {
+pub fn sum_arithmetic_series(num_items: &Decimal, price_start: &Decimal, price_add: &Decimal, current_owned: &Decimal) -> Decimal {
 	let actual_start = price_start + (current_owned * price_add); // (n/2)*(2*a+(n-1)*d)
 
-	num_items / Decimal::new(2.0)
-		* (actual_start * Decimal::new(2.0) + (num_items - Decimal::new(1.0)) + num_items - Decimal::new(1.0))
-		* price_add
+	num_items / Decimal::new(2.0) * (actual_start * Decimal::new(2.0) + (num_items - Decimal::new(1.0)) + num_items - Decimal::new(1.0)) * price_add
 }
 
 /// When comparing two purchases that cost (resource) and increase your resource/sec by (deltaRpS),
@@ -1182,10 +1128,6 @@ pub fn sum_arithmetic_series(
 ///
 /// From Frozen Cookies:
 /// https://cookieclicker.wikia.com/wiki/Frozen_Cookies_(JavaScript_Add-on)#Efficiency.3F_What.27s_that.3F
-pub fn efficiency_of_purchase(
-	cost: &Decimal,
-	current_rp_s: &Decimal,
-	delta_rp_s: &Decimal,
-) -> Decimal {
+pub fn efficiency_of_purchase(cost: &Decimal, current_rp_s: &Decimal, delta_rp_s: &Decimal) -> Decimal {
 	cost / (current_rp_s + (cost / delta_rp_s))
 }
