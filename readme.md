@@ -6,7 +6,7 @@ It has the `Decimal` struct which is able to reach a maximum value of 1e1.79e308
 You can install this package via Cargo by adding these lines to your `Cargo.toml`.
 ```toml
 [dependencies]
-break_infinity="0.2.1"
+break_infinity="0.3.0"
 # ...
 ```
 

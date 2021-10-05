@@ -13,7 +13,7 @@ This project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0
   ### Security
 -->
 
-## [v0.3.0] - 02/10/2021
+## [v0.3.0] - 05/10/2021
 
 ### Added
 
@@ -78,6 +78,7 @@ This project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0
 - Static functions
 
 
-[v0.2.1]: https://github.com/Redfire75369/break-infinity.rs/compare/087957eea4b35f8c6cfd3d6aba07c999e52a3dca..master
+[v0.3.0]: https://github.com/Redfire75369/break-infinity.rs/compare/f1fc9abefc158fff513dc9c5796947824e7abea2..master
+[v0.2.1]: https://github.com/Redfire75369/break-infinity.rs/compare/087957eea4b35f8c6cfd3d6aba07c999e52a3dca..f1fc9abefc158fff513dc9c5796947824e7abea2
 [v0.2.0]: https://github.com/Redfire75369/break-infinity.rs/compare/05b2c2e215296715d75fee23a018a3904e0808e4..087957eea4b35f8c6cfd3d6aba07c999e52a3dca
 [v0.1.0]: https://github.com/Redfire75369/break-infinity.rs/tree/05b2c2e215296715d75fee23a018a3904e0808e4
