@@ -102,6 +102,7 @@ pub fn from_mantissa_exponent(mantissa: f64, exponent: f64) -> Decimal {
 
 /// A struct representing a decimal number, which can reach a maximum of 1e1.79e308 instead of `f64`'s maximum of 1.79e308.
 #[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Decimal {
 	mantissa: f64,
 	exponent: f64,
