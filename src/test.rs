@@ -44,25 +44,25 @@ fn cmp() {
 	let c = super::from_mantissa_exponent_no_normalize(3.1, 52.0);
 	let d = super::from_mantissa_exponent_no_normalize(3.224, 54.0);
 
-	assert_eq!(a == b, false);
-	assert_eq!(a == d, true);
-	assert_eq!(b == d, false);
+	assert!(a != b);
+	assert!(a == d);
+	assert!(b != d);
 
-	assert_eq!(a >= b, true);
-	assert_eq!(a >= d, true);
-	assert_eq!(b >= d, false);
+	assert!(a >= b);
+	assert!(a >= d);
+	assert!(b < d);
 
-	assert_eq!(a > b, true);
-	assert_eq!(a > d, false);
-	assert_eq!(b > d, false);
+	assert!(a > b);
+	assert!(a <= d);
+	assert!(b <= d);
 
-	assert_eq!(a <= b, false);
-	assert_eq!(a <= d, true);
-	assert_eq!(b <= d, true);
+	assert!(a > b);
+	assert!(a <= d);
+	assert!(b <= d);
 
-	assert_eq!(a < b, false);
-	assert_eq!(a < d, false);
-	assert_eq!(b < d, true);
+	assert!(a >= b);
+	assert!(a >= d);
+	assert!(b < d);
 
 	assert_eq!(a.max(&b), a);
 	assert_eq!(a.max(&c), a);
