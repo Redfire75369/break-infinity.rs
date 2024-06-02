@@ -484,6 +484,12 @@ impl From<&str> for Decimal {
 	}
 }
 
+impl Default for Decimal {
+	fn default() -> Self {
+		Decimal::ZERO
+	}
+}
+
 // This allows converting virtually any number to a Decimal.
 impl_from!(i8);
 impl_from!(i16);
@@ -501,6 +507,8 @@ impl_from!(f32);
 impl_from!(f64);
 
 impl Decimal {
+	pub const ZERO: Decimal = Decimal{ mantissa: 0.0, exponent: 0.0 };
+
 	/// Creates a new instance of Decimal with the given value.
 	pub fn new(value: f64) -> Decimal {
 		// SAFETY: Handle Infinity and NaN in a somewhat meaningful way.
