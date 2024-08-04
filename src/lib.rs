@@ -124,7 +124,7 @@ impl Display for Decimal {
 			return if let Some(places) = f.precision() {
 				write!(f, "{:.*}", places, self.to_number().to_string())
 			} else {
-				write!(f, "{}", self.to_number().to_string())
+				write!(f, "{}", self.to_number())
 			};
 		}
 
@@ -466,7 +466,7 @@ impl From<&str> for Decimal {
 	/// Creates a new instance of Decimal from the given string.
 	#[allow(dead_code)]
 	fn from(string: &str) -> Decimal {
-		return if string.find('e') != None {
+		return if string.find('e').is_some() {
 			let parts: Vec<&str> = string.split('e').collect();
 			let decimal = Decimal {
 				mantissa: String::from(parts[0]).parse().unwrap(),
@@ -660,7 +660,7 @@ impl Decimal {
 			return "0".to_owned() + str;
 		} else if self.exponent >= MAX_SIGNIFICANT_DIGITS as f64 {
 			let str = pad_end(
-				self.mantissa.to_string().replace(".", ""),
+				self.mantissa.to_string().replace('.', ""),
 				(self.exponent + 1.0) as u32,
 				String::from("0"),
 			) + if places > 0 { tmp.as_str() } else { "" };
@@ -826,17 +826,17 @@ impl Decimal {
 
 	pub fn max(&self, other: &Decimal) -> Decimal {
 		if self > other {
-			self.clone()
+			*self
 		} else {
-			other.clone()
+			*other
 		}
 	}
 
 	pub fn min(&self, other: &Decimal) -> Decimal {
 		if self < other {
-			self.clone()
+			*self
 		} else {
-			other.clone()
+			*other
 		}
 	}
 
