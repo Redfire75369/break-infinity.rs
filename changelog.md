@@ -103,7 +103,9 @@ This project adheres to [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0
 - Function implementations for Decimal
 - Static functions
 
-[v0.3.0]: https://github.com/Redfire75369/break-infinity.rs/compare/f1fc9abefc158fff513dc9c5796947824e7abea2..master
+[v0.4.0]: https://github.com/Redfire75369/break-infinity.rs/compare/d4b0a956f34f8c1d96865227f444ea2e9870f350..master
+
+[v0.3.0]: https://github.com/Redfire75369/break-infinity.rs/compare/f1fc9abefc158fff513dc9c5796947824e7abea2..d4b0a956f34f8c1d96865227f444ea2e9870f350
 
 [v0.2.1]: https://github.com/Redfire75369/break-infinity.rs/compare/087957eea4b35f8c6cfd3d6aba07c999e52a3dca..f1fc9abefc158fff513dc9c5796947824e7abea2
 
