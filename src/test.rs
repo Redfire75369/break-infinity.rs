@@ -21,7 +21,10 @@ fn ops() {
 
 	assert_eq!(a + b, super::from_mantissa_exponent_no_normalize(3.348, 54.0));
 	assert_eq!(a - b, super::from_mantissa_exponent_no_normalize(3.1, 54.0));
-	assert_eq!(a * b, super::from_mantissa_exponent_no_normalize(3.9977600000000004, 107.0));
+	assert_eq!(
+		a * b,
+		super::from_mantissa_exponent_no_normalize(3.9977600000000004, 107.0)
+	);
 	assert_eq!(a / b, super::from_mantissa_exponent_no_normalize(2.6, 1.0));
 
 	assert_eq!(a + c, super::from_mantissa_exponent_no_normalize(3.255, 54.0));
@@ -32,7 +35,10 @@ fn ops() {
 	assert_eq!(b + c, super::from_mantissa_exponent_no_normalize(1.55, 53.0));
 	assert_eq!(b - c, super::from_mantissa_exponent_no_normalize(9.3, 52.0));
 	assert_eq!(b * c, super::from_mantissa_exponent_no_normalize(3.844, 105.0));
-	assert_eq!(b / c, super::from_mantissa_exponent_no_normalize(3.9999999999999996, 0.0));
+	assert_eq!(
+		b / c,
+		super::from_mantissa_exponent_no_normalize(3.9999999999999996, 0.0)
+	);
 
 	assert_eq!(Decimal::new(1.0) + Decimal::new(0.0), Decimal::new(1.0));
 }
@@ -44,9 +50,9 @@ fn cmp() {
 	let c = super::from_mantissa_exponent_no_normalize(3.1, 52.0);
 	let d = super::from_mantissa_exponent_no_normalize(3.224, 54.0);
 
-	assert!(a != b);
-	assert!(a == d);
-	assert!(b != d);
+	assert_ne!(a, b);
+	assert_eq!(a, d);
+	assert_ne!(b, d);
 
 	assert!(a >= b);
 	assert!(a >= d);
@@ -79,9 +85,21 @@ fn cmp() {
 
 #[test]
 fn neg_abs() {
-	assert_eq!(-Decimal::new(456.7), super::from_mantissa_exponent_no_normalize(-4.567, 2.0));
-	assert_eq!(-Decimal::new(1.23e48), super::from_mantissa_exponent_no_normalize(-1.23, 48.0));
+	assert_eq!(
+		-Decimal::new(456.7),
+		super::from_mantissa_exponent_no_normalize(-4.567, 2.0)
+	);
+	assert_eq!(
+		-Decimal::new(1.23e48),
+		super::from_mantissa_exponent_no_normalize(-1.23, 48.0)
+	);
 
-	assert_eq!(Decimal::new(-456.7).abs(), super::from_mantissa_exponent_no_normalize(4.567, 2.0));
-	assert_eq!(Decimal::new(-1.23e48).abs(), super::from_mantissa_exponent_no_normalize(1.23, 48.0));
+	assert_eq!(
+		Decimal::new(-456.7).abs(),
+		super::from_mantissa_exponent_no_normalize(4.567, 2.0)
+	);
+	assert_eq!(
+		Decimal::new(-1.23e48).abs(),
+		super::from_mantissa_exponent_no_normalize(1.23, 48.0)
+	);
 }
